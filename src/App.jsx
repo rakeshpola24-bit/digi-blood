@@ -1218,7 +1218,7 @@ function DigiBloodApp(){
         <div className="db-form-actions" style={{flexDirection:'column'}}>
           {done.poster&&<button type="button" className="db-btn db-btn-primary" onClick={()=>{const p=done.poster;setDone(null);setPosterData(p);}}><span className="material-symbols-outlined">campaign</span>Create Poster</button>}
           <button type="button" className={`db-btn ${done.poster?'db-btn-outline':'db-btn-primary'}`} onClick={()=>setDone(null)}>Done</button>
-          <a className="db-btn db-btn-outline" style={{justifyContent:'center'}} href={'https://wa.me/917337335556?text='+encodeURIComponent(done.wa)} target="_blank" rel="noopener"><span className="material-symbols-outlined">chat</span>Send a copy to the team on WhatsApp (optional)</a>
+          <a className="db-btn db-btn-outline" style={{justifyContent:'center'}} href={'https://wa.me/917337335556?text='+encodeURIComponent(done.wa)} target="_blank" rel="noopener"><span className="material-symbols-outlined">chat</span>Also send to team on WhatsApp (optional)</a>
         </div></div>}
       </Modal>
       <Toasts list={toasts}/>
@@ -1231,4 +1231,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-}
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
