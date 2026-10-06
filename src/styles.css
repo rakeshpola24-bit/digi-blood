@@ -369,3 +369,9 @@ html,body{overflow-x:hidden;}
 .db-subnav,.db-subnav-inner > div:first-child{scrollbar-width:none;-ms-overflow-style:none;}
 .db-subnav::-webkit-scrollbar,.db-subnav-inner > div:first-child::-webkit-scrollbar{display:none;}
 @media(max-width:768px){.db-subnav-inner > div:last-child{box-sizing:border-box;width:100%;}}
+@media(max-width:768px){
+  table td:first-child,table th:first-child{max-width:170px;min-width:150px;}
+  table td:not(:first-child),table th:not(:first-child){white-space:nowrap;padding-left:6px;padding-right:6px;font-size:12px;}
+  .db-filter-bar{display:grid!important;grid-template-columns:1fr 1fr;gap:10px;}
+  .db-filter-bar > input[type="text"]{grid-column:1/-1;}
+}
