@@ -1,0 +1,10 @@
+<!-- Paste into a VV page (Blade view / CMS page). Replace the URL with the live Digi Blood address. -->
+<iframe id="digi-blood-frame" src="https://rakeshpola24-bit.github.io/digi-blood/"
+  title="Digi Blood" style="width:100%;border:0;min-height:900px" loading="lazy"
+  allow="clipboard-write; web-share"></iframe>
+<script>
+  window.addEventListener('message', function (e) {
+    if (e.data && e.data.type === 'digi-blood-height')
+      document.getElementById('digi-blood-frame').style.height = e.data.height + 'px';
+  });
+</script>
