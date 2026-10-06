@@ -60,7 +60,7 @@ const FAQS=[
   {q:'Does donating blood hurt?',a:'You may feel a brief pinch when the needle is inserted. The actual donation takes only 8-10 minutes and is generally painless.'},
   {q:'What should I do before donating?',a:'Eat a healthy meal at least 2 hours before. Drink extra water. Avoid fatty foods. Get a good night sleep. Avoid alcohol for 24 hours before.'},
   {q:'What happens after donation?',a:'Rest for 10-15 minutes. Drink extra fluids for 24 hours. Avoid strenuous activity for the day.'},
-  {q:'How can I register as a donor?',a:'Click "Donate Now" and fill the registration form. You will be added to our voluntary donor network and notified when your blood group is urgently needed.'},
+  {q:'How can I register as a donor?',a:'Tap "Register as Donor" and fill the registration form. You will be added to our voluntary donor network and notified when your blood group is urgently needed.'},
 ];
 const ELIGIBILITY=[
   {ok:true,title:'Age 18-65 years',sub:'Both men and women are eligible'},
@@ -133,7 +133,7 @@ function fmtTime(d){return d?d.toLocaleTimeString('en-IN',{hour:'2-digit',minute
 /* ── Toast ── */
 function useToast(){
   const[list,setList]=useState([]);
-  function show(msg,type=''){const id=Date.now();setList(l=>[...l,{id,msg,type}]);setTimeout(()=>setList(l=>l.filter(x=>x.id!==id)),3500);}
+  function show(msg,type=''){const id=Date.now();setList(l=>[...l,{id,msg,type}]);setTimeout(()=>setList(l=>l.filter(x=>x.id!==id)),6500);}
   return[list,show];
 }
 function Toasts({list}){return <div className="db-toast-wrap">{list.map(t=><div key={t.id} className={`db-toast ${t.type}`}><span className="material-symbols-outlined">{t.type==='ok'?'check_circle':t.type==='err'?'error':'info'}</span>{t.msg}</div>)}</div>;}
@@ -147,19 +147,20 @@ function SubNav({page,setPage,openDonor,openReq}){
     <div style={{display:'flex',alignItems:'stretch',overflowX:'auto'}}>{NAV_TABS.map(n=><button key={n.id} className={`db-subnav-btn${page===n.id?' db-active':''}`} onClick={()=>setPage(n.id)}><span className="material-symbols-outlined">{n.icon}</span>{n.label}</button>)}</div>
     <div style={{display:'flex',alignItems:'center',gap:8,padding:'6px 0',flexShrink:0}}>
       <button className="db-btn db-btn-outline db-btn-sm" onClick={openReq}><span className="material-symbols-outlined">add_circle</span>Request Blood</button>
-      <button className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Donate Now</button>
+      <button className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Register as Donor</button>
     </div>
   </div></div>;
 }
 
 /* ── Modal wrapper ── */
 function Modal({open,onClose,title,sub,children}){
+  useEffect(()=>{if(!open)return;const k=e=>{if(e.key==='Escape')onClose();};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[open]);
   if(!open)return null;
   return <div className="db-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
     <div className="db-modal">
       <div className="db-modal-hd">
         <div><div className="db-modal-title">{title}</div>{sub&&<div style={{fontSize:13,color:'var(--db-gray-500)',marginTop:4}}>{sub}</div>}</div>
-        <button className="db-modal-close" onClick={onClose}><span className="material-symbols-outlined" style={{fontSize:22}}>close</span></button>
+        <button className="db-modal-close" aria-label="Close" onClick={onClose}><span className="material-symbols-outlined" style={{fontSize:22}}>close</span></button>
       </div>
       <div className="db-modal-body">{children}</div>
     </div>
@@ -666,7 +667,7 @@ function PosterModal({req,onClose}){
     <div className="db-modal" style={{maxWidth:540}}>
       <div className="db-modal-hd">
         <div><div className="db-modal-title">Share Poster</div><div style={{fontSize:13,color:'var(--db-gray-500)',marginTop:4}}>Download &amp; share this poster on social media to find a donor fast</div></div>
-        <button className="db-modal-close" onClick={onClose}><span className="material-symbols-outlined" style={{fontSize:22}}>close</span></button>
+        <button className="db-modal-close" aria-label="Close" onClick={onClose}><span className="material-symbols-outlined" style={{fontSize:22}}>close</span></button>
       </div>
       <div className="db-modal-body">
         <div className="db-poster-preview">
@@ -727,6 +728,7 @@ function AreaPicker({label,req,placeholder,value,onChange,error,other,setOther})
 function areaErr(v,other){const s=(v||'').trim();if(!s)return 'Required';if(VIZAG_AREAS.some(a=>a.toLowerCase()===s.toLowerCase()))return '';if(!other)return 'Pick from the list or tap "My area isn\'t listed"';if(!/^[A-Za-z][A-Za-z0-9 .,'()\/-]{2,39}$/.test(s)||/^(.)\1+$/.test(s)||/(test|asdf|xxx|none|na|n\/a)$/i.test(s))return 'Enter a real area name';return '';}
 
 /* ── Donor Registration Form ── */
+const dbToast=(msg,type)=>window.dispatchEvent(new CustomEvent('db-toast',{detail:{msg,type}}));
 function DonorForm({open,onClose}){
   const INIT={name:'',phone:'',bg:'',area:'',age:'',lastDon:'first',note:''};
   const[f,setF]=useState(INIT);
@@ -748,7 +750,7 @@ function DonorForm({open,onClose}){
     const msg=`Donor Registration — Vizag Volunteers Digi Blood\n\nName: ${f.name}\nPhone: ${f.phone}\nBlood Group: ${f.bg}\nAge: ${f.age}\nArea: ${f.area}\nLast Donation: ${lastMap[f.lastDon]}${f.note?'\nNotes: '+f.note:''}\n\nPlease add me to the Digi Blood donor network.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('donors',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,age:parseInt(f.age),area:f.area.trim(),lastDonation:f.lastDon,note:(f.note||'').slice(0,300)}).catch(()=>{});
-    window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    dbToast('Thank you! Your registration is sent to our team for approval. Tap Send in WhatsApp to finish.');if(location.hash==='#register')history.replaceState(null,'','#donors');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -791,7 +793,7 @@ function RequestForm({open,onClose,onSuccess}){
     const msg=`Blood Request — Vizag Volunteers Digi Blood\n\nPatient: ${f.name}\nContact: ${f.phone}\nBlood Group: ${f.bg}\nUnits: ${f.units}\nHospital: ${f.hospital}\nArea: ${f.area}\nUrgency: ${urgLabel}${f.note?'\nNotes: '+f.note:''}\n\nKindly help connect us with a matching donor. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('requests',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,units:parseInt(f.units),hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:(f.note||'').slice(0,300)}).catch(()=>{});
-    window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    dbToast('Request sent to our team. Your poster is ready to share. Tap Send in WhatsApp to alert volunteers.');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
     close();
     if(onSuccess)onSuccess({patient_name:f.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:(f.urgency||'').charAt(0).toUpperCase()+(f.urgency||'').slice(1),contact:f.phone});
   }
@@ -840,7 +842,7 @@ function CampForm({open,onClose}){
     const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue: ${f.venue}\nArea: ${f.area}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim()+', '+f.area.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
-    window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    dbToast('Request received! Tap Send in WhatsApp and our team will contact you to plan the camp.');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -899,7 +901,7 @@ function HeroCarousel({setPage,openDonor,openReq}){
           {[{to:DC.requests.filter(r=>r.status==='open').length,suffix:'',lbl:'Open Requests'},{to:DC.donors.length,suffix:'',lbl:'Donors'},{to:DC.camps.filter(c=>c.status==='upcoming').length,suffix:'',lbl:'Upcoming Camps'},{to:BC.banks.length,suffix:'',lbl:'Blood Banks'}].filter(c=>c.to>0).map((c,i)=><div key={i} className="db-slide-counters-item"><div className="cv"><CountUp to={c.to} active={slide===0} suffix={c.suffix}/></div><div className="cl">{c.lbl}</div></div>)}
         </div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-          <button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Become a Donor</button>
+          <button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Register as Donor</button>
           <button className="db-btn db-btn-outline-light db-btn-lg" onClick={()=>setPage('req')}><span className="material-symbols-outlined">assignment</span>View Requests</button>
         </div>
       </div>
@@ -925,7 +927,7 @@ function HeroCarousel({setPage,openDonor,openReq}){
         </div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
           <button className="db-btn db-btn-yellow db-btn-lg" onClick={()=>setCampOpen(true)}><span className="material-symbols-outlined">volunteer_activism</span>Organise a Camp</button>
-          <button className="db-btn db-btn-outline-light db-btn-lg" onClick={()=>setPage('camps')}><span className="material-symbols-outlined">event_available</span>Past Camps</button>
+          <button className="db-btn db-btn-outline-light db-btn-lg" onClick={()=>setPage('camps')}><span className="material-symbols-outlined">event_available</span>View Camps</button>
         </div>
       </div>
       <div style={{width:330,flexShrink:0,position:'relative',zIndex:1}}>
@@ -961,8 +963,8 @@ function HeroCarousel({setPage,openDonor,openReq}){
           {[{to:1,suffix:' unit',lbl:'You Donate'},{to:3,suffix:' lives',lbl:'You Save'},{to:450,suffix:'ml',lbl:'Per Donation'},{to:56,suffix:' days',lbl:'Waiting Period'}].filter(c=>c.to>0).map((c,i)=><div key={i} className="db-slide-counters-item"><div className="cv"><CountUp to={c.to} active={slide===2} suffix={c.suffix}/></div><div className="cl">{c.lbl}</div></div>)}
         </div>
         <div style={{display:'flex',gap:12,flexWrap:'wrap'}}>
-          <button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Become a Donor</button>
-          <button className="db-btn db-btn-outline-light db-btn-lg" onClick={()=>setPage('about')}><span className="material-symbols-outlined">info</span>Learn More</button>
+          <button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">favorite</span>Register as Donor</button>
+          <button className="db-btn db-btn-outline-light db-btn-lg" onClick={()=>setPage('about')}><span className="material-symbols-outlined">info</span>About Digi Blood</button>
         </div>
       </div>
       <div style={{width:330,flexShrink:0,position:'relative',zIndex:1}}>
@@ -1007,20 +1009,20 @@ function HomePage({setPage,openDonor,openReq}){
     <HeroCarousel setPage={setPage} openDonor={openDonor} openReq={openReq}/>
     <div className="db-stats-strip"><div className="db-stats-strip-inner">{[{val:donors.length,label:'Registered Donors',sub:'Vizag network'},{val:CAMPS.filter(c=>c.status==='upcoming').length,label:'Upcoming Camps',sub:'Join one near you'},{val:openReqs.length,label:'Open Requests',sub:critCount+' critical'},{val:banks.length,label:'Blood Banks',sub:'Stock updated every 30 min'}].filter(x=>x.val>0).map((s,i)=><div key={i} className="db-stat-item"><div className="db-stat-item__val">{s.val}</div><div className="db-stat-item__label">{s.label}</div><div className="db-stat-item__sub">{s.sub}</div></div>)}</div></div>
     <div className="db-sec" style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)'}}><div className="db-cnt">
-      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Urgent Requests</div><div className="db-sec-sub">Help someone today &mdash; your blood can be the difference</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('req')}>View all &rarr;</button></div>
+      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Urgent Requests</div><div className="db-sec-sub">Help someone today &mdash; your blood can be the difference</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('req')}>View all requests &rarr;</button></div>
       {REQUESTS.filter(r=>r.status==='open').length===0?<div className="db-empty"><span className="material-symbols-outlined">task_alt</span><b>No urgent requests right now</b><span>Need blood for a patient? Tap Request Blood at the top.</span></div>:<div className="db-grid-3">{REQUESTS.filter(r=>r.status==='open').slice(0,3).map(r=><ReqCard key={r.id} req={r}/>)}</div>}
     </div></div>
     <div className="db-sec"><div className="db-cnt">
-      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Blood Availability</div><div className="db-sec-sub">Aggregated stock across Vizag blood banks &middot; Live from eRaktKosh</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('avail')}>Detailed view &rarr;</button></div>
+      <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Blood Availability</div><div className="db-sec-sub">Aggregated stock across Vizag blood banks &middot; Live from eRaktKosh</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('avail')}>View availability &rarr;</button></div>
       <div className="db-grid-4">{BLOOD_GROUPS.map(bg=>{const tot=groupTotalLive(banks,bg);return <div key={bg} className="db-card" style={{cursor:'pointer'}} onClick={()=>setPage('avail')}><div className="db-card-body" style={{textAlign:'center'}}><div className="db-bg-chip lg" style={{margin:'0 auto 12px'}}>{bg}</div><div className={'db-tile-status '+availCls(tot)}>{loading?'Loading…':tot===0?'Not available':tot<=5?'Limited':'Available'}</div><div className="db-tile-sub">{loading?'':tot===0?'Call banks directly':banks.filter(b=>b.stock[bg]>0).length+' of '+banks.length+' banks · '+tot+' units'}</div></div></div>;})}</div>
     </div></div>
-    <div className="db-callout-yellow"><h2>Blood Must Circulate</h2><p>Voluntary blood donation is the safest source. Join Vizag's network of heroes &mdash; every donation can save up to 3 lives.</p><div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}><button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">volunteer_activism</span>Register as Donor</button><button className="db-btn db-btn-dark db-btn-lg" onClick={()=>setPage('about')}>Learn More</button></div></div>
+    <div className="db-callout-yellow"><h2>Blood Must Circulate</h2><p>Voluntary blood donation is the safest source. Join Vizag's network of heroes &mdash; every donation can save up to 3 lives.</p><div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}><button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">volunteer_activism</span>Register as Donor</button><button className="db-btn db-btn-dark db-btn-lg" onClick={()=>setPage('about')}>About Digi Blood</button></div></div>
     <div className="db-sec" style={{background:'#fff'}}><div className="db-cnt"><div className="db-grid-2">
-      <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Top Donors</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('donors')}>All donors &rarr;</button></div>
+      <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Top Donors</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('donors')}>View all donors &rarr;</button></div>
         {donors.length===0?<div className="db-empty"><span className="material-symbols-outlined">volunteer_activism</span><b>Be the first donor</b><span>Register once and help Vizag in an emergency.</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div>:<div className="db-card"><div className="db-card-body">{donors.slice(0,5).map((d,i)=><div key={d.id} className="db-donor-row"><div className={`db-rank-num ${i<3?'top':''}`}>{['🥇','🥈','🥉'][i]||i+1}</div><div className="db-donor-av">{d.initials}</div><div className="db-donor-info"><div className="dn">{d.name}</div><div className="ds">{d.area} &middot; Last: {d.last}</div></div><div className="db-bg-chip sm">{d.bg}</div><div className="db-donor-count">{d.donations}</div></div>)}</div></div>}
       </div>
-      <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Upcoming Camps</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('camps')}>All camps &rarr;</button></div>
-        {CAMPS.filter(c=>c.status==='upcoming').length===0?<div className="db-empty"><span className="material-symbols-outlined">event</span><b>No camps scheduled yet</b><span>Want to host one at your office or college?</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={()=>setPage('camps')}>See camps</button></div>:<div style={{display:'flex',flexDirection:'column',gap:12}}>{CAMPS.filter(c=>c.status==='upcoming').slice(0,3).map(c=><div key={c.id} className="db-card"><div className="db-card-body" style={{display:'flex',gap:14,alignItems:'flex-start'}}><div className="db-date-badge"><span className="day">{c.day}</span><span className="mon">{c.mon}</span></div><div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{c.title}</div><div style={{fontSize:13,color:'var(--db-secondary)',fontWeight:600}}>{c.organizer}</div><div style={{fontSize:13,color:'var(--db-gray-500)',marginTop:4}}>{c.venue}</div><div className="db-slot-bar mt-8"><div className="db-slot-fill" style={{width:Math.round(c.registered/c.slots*100)+'%'}}></div></div><div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:3}}>{c.registered}/{c.slots} slots filled</div></div><button className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register</button></div></div>)}</div>}
+      <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Upcoming Camps</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('camps')}>View all camps &rarr;</button></div>
+        {CAMPS.filter(c=>c.status==='upcoming').length===0?<div className="db-empty"><span className="material-symbols-outlined">event</span><b>No camps scheduled yet</b><span>Want to host one at your office or college?</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={()=>setPage('camps')}>View all camps &rarr;</button></div>:<div style={{display:'flex',flexDirection:'column',gap:12}}>{CAMPS.filter(c=>c.status==='upcoming').slice(0,3).map(c=><div key={c.id} className="db-card"><div className="db-card-body" style={{display:'flex',gap:14,alignItems:'flex-start'}}><div className="db-date-badge"><span className="day">{c.day}</span><span className="mon">{c.mon}</span></div><div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{c.title}</div><div style={{fontSize:13,color:'var(--db-secondary)',fontWeight:600}}>{c.organizer}</div><div style={{fontSize:13,color:'var(--db-gray-500)',marginTop:4}}>{c.venue}</div><div className="db-slot-bar mt-8"><div className="db-slot-fill" style={{width:Math.round(c.registered/c.slots*100)+'%'}}></div></div><div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:3}}>{c.registered}/{c.slots} slots filled</div></div><button className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div></div>)}</div>}
       </div>
     </div></div></div>
   </React.Fragment>;
@@ -1104,13 +1106,13 @@ function RequestsPage({openReq}){
     <div style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)',padding:'28px 0'}}><div className="db-cnt">
       <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
         <div><div className="db-sec-title">Active Blood Requests</div><div className="db-sec-sub">Real-time requests from Vizag hospitals &mdash; respond and save a life</div></div>
-        <button className="db-btn db-btn-primary" onClick={openReq}><span className="material-symbols-outlined">add_circle</span>Post a Request</button>
+        <button className="db-btn db-btn-primary" onClick={openReq}><span className="material-symbols-outlined">add_circle</span>Request Blood</button>
       </div>
     </div></div>
     <div className="db-pw"><div className="db-cnt">
     <div className="db-grid-4 mb-24">{[{label:'Total',val:stats.total,icon:'list',c:'b'},{label:'Open',val:stats.open,icon:'schedule',c:'y'},{label:'Critical',val:stats.crit,icon:'priority_high',c:'r'},{label:'Fulfilled',val:stats.done,icon:'check_circle',c:'g'}].filter(s=>s.val!==0).map((s,i)=><div key={i} className={`db-kpi-card ${s.c}`}><div className={`db-kpi-card__icon ${s.c}`}><span className="material-symbols-outlined">{s.icon}</span></div><div className="db-kpi-card__val">{s.val}</div><div className="db-kpi-card__label">{s.label}</div></div>)}</div>
     <div className="db-filter-bar"><input type="text" placeholder="Search name, hospital or area..." value={search} onChange={e=>setSearch(e.target.value)} style={{minWidth:220}}/><label>Group</label><select value={fBg} onChange={e=>setFBg(e.target.value)}><option>All</option>{BLOOD_GROUPS.map(bg=><option key={bg}>{bg}</option>)}</select><label>Urgency</label><select value={fUrg} onChange={e=>setFUrg(e.target.value)}><option>All</option><option value="critical">Critical</option><option value="urgent">Urgent</option><option value="routine">Routine</option></select><label>Status</label><select value={fSt} onChange={e=>setFSt(e.target.value)}><option value="All">All</option><option value="open">Open</option><option value="matched">Matched</option><option value="fulfilled">Fulfilled</option></select></div>
-    {filtered.length===0?<div className="db-empty" style={{margin:'8px 0'}}><span className="material-symbols-outlined">search_off</span>{REQUESTS.length===0?'No blood requests yet':'No requests match your filters.'}<div style={{marginTop:14}}><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openReq}>Post a Request</button></div></div>:<div className="db-grid-3">{filtered.map(r=><ReqCard key={r.id} req={r}/>)}</div>}
+    {filtered.length===0?<div className="db-empty" style={{margin:'8px 0'}}><span className="material-symbols-outlined">search_off</span>{REQUESTS.length===0?'No blood requests yet':'No requests match your filters.'}<div style={{marginTop:14}}><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openReq}>Request Blood</button></div></div>:<div className="db-grid-3">{filtered.map(r=><ReqCard key={r.id} req={r}/>)}</div>}
   </div></div>
   </React.Fragment>;
 }
@@ -1151,7 +1153,7 @@ function CampsPage({openDonor}){
     <div className="db-pw"><div className="db-cnt">
     <div className="db-grid-4 mb-24">{[{label:'Upcoming',val:CAMPS.filter(c=>c.status==='upcoming').length,icon:'event_upcoming',c:'y'},{label:'Past Camps',val:CAMPS.filter(c=>c.status==='past').length,icon:'event_available',c:'g'},{label:'Total Slots',val:CAMPS.reduce((a,c)=>a+c.slots,0),icon:'chair',c:'b'},{label:'Registered',val:CAMPS.reduce((a,c)=>a+c.registered,0),icon:'how_to_reg',c:'r'}].filter(s=>s.val!==0).map((s,i)=><div key={i} className={`db-kpi-card ${s.c}`}><div className={`db-kpi-card__icon ${s.c}`}><span className="material-symbols-outlined">{s.icon}</span></div><div className="db-kpi-card__val">{s.val}</div><div className="db-kpi-card__label">{s.label}</div></div>)}</div>
     <div style={{display:'flex',gap:4,padding:4,background:'var(--db-gray-200)',borderRadius:10,width:'fit-content',marginBottom:20}}>{['upcoming','past'].map(t=><button key={t} onClick={()=>setTab(t)} style={{padding:'8px 20px',borderRadius:8,fontWeight:600,fontSize:13.5,cursor:'pointer',background:tab===t?'#fff':'transparent',color:tab===t?'var(--db-black)':'var(--db-gray-500)',border:0,boxShadow:tab===t?'0 1px 3px rgba(0,0,0,.08)':'none'}}>{t==='upcoming'?'Upcoming':'Past'}</button>)}</div>
-    {shown.length===0?<div className="db-empty" style={{margin:'8px 0'}}><span className="material-symbols-outlined">event_busy</span>No {tab} camps yet.<div style={{marginTop:14}}><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={()=>setCampOpen(true)}>Organise a Camp</button></div></div>:<div className="db-grid-3">{shown.map(c=><div key={c.id} className="db-camp-card"><div className={`db-camp-stripe ${c.status}`}></div><div className="db-camp-body"><div style={{display:'flex',gap:14,alignItems:'flex-start'}}><div className="db-date-badge"><span className="day">{c.day}</span><span className="mon">{c.mon}</span></div><div className="db-camp-info"><div className="ctitle">{c.title}</div><div className="corg">{c.organizer}</div><div className="caddr"><span className="material-symbols-outlined">location_on</span>{c.venue}</div></div></div>{c.status==='upcoming'&&<React.Fragment><div style={{fontSize:13,color:'var(--db-gray-500)',display:'flex',alignItems:'center',gap:6}}><span className="material-symbols-outlined" style={{fontSize:15,color:'var(--db-green)'}}>how_to_reg</span>{c.registered}/{c.slots} slots filled</div><div className="db-slot-bar"><div className="db-slot-fill" style={{width:Math.round(c.registered/c.slots*100)+'%'}}></div></div>{c.contact&&<div style={{fontSize:13,color:'var(--db-gray-500)',display:'flex',gap:6,alignItems:'center'}}><span className="material-symbols-outlined" style={{fontSize:14}}>contact_phone</span>{c.contact}</div>}<button className="db-btn db-btn-primary" style={{width:'100%'}} onClick={openDonor}><span className="material-symbols-outlined">how_to_reg</span>Register Slot</button></React.Fragment>}{c.status==='past'&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--db-green-soft)',borderRadius:6,fontSize:13,color:'var(--db-green)',fontWeight:600}}><span className="material-symbols-outlined" style={{fontSize:16}}>check_circle</span>{c.registered} donors participated &mdash; Completed</div>}</div></div>)}</div>}
+    {shown.length===0?<div className="db-empty" style={{margin:'8px 0'}}><span className="material-symbols-outlined">event_busy</span>No {tab} camps yet.<div style={{marginTop:14}}><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={()=>setCampOpen(true)}>Organise a Camp</button></div></div>:<div className="db-grid-3">{shown.map(c=><div key={c.id} className="db-camp-card"><div className={`db-camp-stripe ${c.status}`}></div><div className="db-camp-body"><div style={{display:'flex',gap:14,alignItems:'flex-start'}}><div className="db-date-badge"><span className="day">{c.day}</span><span className="mon">{c.mon}</span></div><div className="db-camp-info"><div className="ctitle">{c.title}</div><div className="corg">{c.organizer}</div><div className="caddr"><span className="material-symbols-outlined">location_on</span>{c.venue}</div></div></div>{c.status==='upcoming'&&<React.Fragment><div style={{fontSize:13,color:'var(--db-gray-500)',display:'flex',alignItems:'center',gap:6}}><span className="material-symbols-outlined" style={{fontSize:15,color:'var(--db-green)'}}>how_to_reg</span>{c.registered}/{c.slots} slots filled</div><div className="db-slot-bar"><div className="db-slot-fill" style={{width:Math.round(c.registered/c.slots*100)+'%'}}></div></div>{c.contact&&<div style={{fontSize:13,color:'var(--db-gray-500)',display:'flex',gap:6,alignItems:'center'}}><span className="material-symbols-outlined" style={{fontSize:14}}>contact_phone</span>{c.contact}</div>}<button className="db-btn db-btn-primary" style={{width:'100%'}} onClick={openDonor}><span className="material-symbols-outlined">how_to_reg</span>Register as Donor</button></React.Fragment>}{c.status==='past'&&<div style={{display:'flex',alignItems:'center',gap:8,padding:'8px 12px',background:'var(--db-green-soft)',borderRadius:6,fontSize:13,color:'var(--db-green)',fontWeight:600}}><span className="material-symbols-outlined" style={{fontSize:16}}>check_circle</span>{c.registered} donors participated &mdash; Completed</div>}</div></div>)}</div>}
   </div></div>
   <CampForm open={campOpen} onClose={()=>setCampOpen(false)}/>
   </React.Fragment>;
@@ -1180,6 +1182,7 @@ function AboutPage(){
 function DigiBloodApp(){
   const[page,setPage]=useState(()=>{const h=location.hash.slice(1);return ['avail','req','donors','camps','about'].includes(h)?h:h==='register'?'donors':'home'});
   const[toasts,showToast]=useToast();
+  useEffect(()=>{const h=e=>showToast(e.detail.msg,e.detail.type||'ok');window.addEventListener('db-toast',h);return()=>window.removeEventListener('db-toast',h);},[]);
   const[donorOpen,setDonorOpen]=useState(()=>location.hash==='#register');
   useEffect(()=>{const h=()=>{if(location.hash==='#register')setDonorOpen(true);};window.addEventListener('hashchange',h);return()=>window.removeEventListener('hashchange',h);},[]);
   const[reqOpen,setReqOpen]=useState(false);
@@ -1188,7 +1191,7 @@ function DigiBloodApp(){
   const openDonor=()=>setDonorOpen(true);
   const openReq=()=>setReqOpen(true);
   const pages={
-    home:<HomePage setPage={setPage} openDonor={openDonor} openReq={openReq}/>,
+    home:<HomePage setPage={p=>{setPage(p);window.scrollTo({top:0});}} openDonor={openDonor} openReq={openReq}/>,
     avail:<AvailPage/>,
     req:<RequestsPage openReq={openReq}/>,
     donors:<DonorsPage openDonor={openDonor}/>,
@@ -1197,7 +1200,7 @@ function DigiBloodApp(){
   };
   return <BloodProvider><DataProvider>
     <div className="db-app">
-      <SubNav page={page} setPage={setPage} openDonor={openDonor} openReq={openReq}/>
+      <SubNav page={page} setPage={p=>{setPage(p);window.scrollTo({top:0});}} openDonor={openDonor} openReq={openReq}/>
       <main>{pages[page]}</main>
       <footer className="db-footer"><div className="db-cnt">
         <div className="db-footer-brand"><b>Digi Blood</b><span>A Vizag Volunteers initiative &middot; Visakhapatnam</span></div>
@@ -1217,4 +1220,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-}
+   }
