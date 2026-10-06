@@ -12,7 +12,7 @@ try{
       const other=p.data.find(r=>r[1]===row[1])||p.data[i];
       if(!other)continue;
       if((other[4]||'')>newest)newest=other[4];
-      for(const m of (other[3]||'').match(/[A-Za-z]+[+-]Ve:\d+/g)||[]){const [k,v]=m.split(':');sums[k]=(sums[k]||0)+parseInt(v,10);}
+      for(const m of (other[3]||'').match(/[A-Za-z]+[+-]Ve:\d+/gi)||[]){const [k0,v]=m.split(':');const k=k0.replace(/ve$/i,'Ve');sums[k]=(sums[k]||0)+parseInt(v,10);}
     }
     const keys=Object.keys(sums);
     const html=keys.length?'<p class="text-success">Available, '+keys.map(k=>k+':'+sums[k]).join(', ')+'</p>':'<p class="text-danger">Not Available</p>';
