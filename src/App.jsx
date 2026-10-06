@@ -6,6 +6,7 @@ import Admin from './Admin.jsx';
 
 
 const BLOOD_GROUPS=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
+const TABLE_GROUPS=[...BLOOD_GROUPS,'Bombay'];
 const REQUESTS=[
   {id:'R001',name:'Ravi Kumar',bg:'O-',units:2,hospital:'KGH',area:'Maharani Peta',urgency:'critical',status:'open',contact:'98491 11234',postedAgo:'2 hrs ago',note:'Required for emergency surgery tonight'},
   {id:'R002',name:'Priya Sharma',bg:'B+',units:1,hospital:'Apollo Hospitals',area:'Waltair Uplands',urgency:'urgent',status:'open',contact:'98491 22345',postedAgo:'5 hrs ago',note:'Post-delivery complication'},
@@ -73,13 +74,13 @@ const ELIGIBILITY=[
 const SAFETY=['All needles and collection sets are sterile, single-use, and disposed immediately after use.','Trained medical professionals conduct a brief health check before every donation.','Blood pressure, haemoglobin level, and pulse are checked prior to donation.','Donors are monitored during and 10-15 minutes after the donation.','Refreshments and rest are provided post-donation at all camps and centres.','Blood is tested for HIV, Hepatitis B, Hepatitis C, Syphilis, and Malaria before use.','All data is handled with strict confidentiality as per applicable regulations.'];
 
 /* ── eRaktKosh context (single shared fetch) ── */
-const BG_MAP={'A+Ve':'A+','A-Ve':'A-','B+Ve':'B+','B-Ve':'B-','AB+Ve':'AB+','AB-Ve':'AB-','O+Ve':'O+','O-Ve':'O-'};
+const BG_MAP={'A+Ve':'A+','A-Ve':'A-','B+Ve':'B+','B-Ve':'B-','AB+Ve':'AB+','AB-Ve':'AB-','O+Ve':'O+','O-Ve':'O-','Oh+Ve':'Bombay','Oh-Ve':'Bombay'};
 const BloodCtx=createContext({banks:[],loading:true,err:null,updatedAt:null,refresh:()=>{}});
 function parseAvailStr(html){
-  const stock={};BLOOD_GROUPS.forEach(g=>stock[g]=0);
+  const stock={};TABLE_GROUPS.forEach(g=>stock[g]=0);
   if(!html||html.includes('Not Available'))return stock;
-  const m=html.match(/([A-Z]+[+-]Ve):(\d+)/g)||[];
-  m.forEach(s=>{const[k,v]=s.split(':');const bg=BG_MAP[k];if(bg)stock[bg]=parseInt(v,10);});
+  const m=html.match(/([A-Za-z]+[+-]Ve):(\d+)/gi)||[];
+  m.forEach(s=>{const[k,v]=s.split(':');const kk=k.replace(/ve$/i,'Ve');const bg=BG_MAP[kk];if(bg)stock[bg]=(stock[bg]||0)+parseInt(v,10);});
   return stock;
 }
 function parseBank(row,idx){
@@ -1003,7 +1004,7 @@ function AvailPage(){
   const[refreshing,setRefreshing]=useState(false);
   function doRefresh(){setRefreshing(true);refresh();setTimeout(()=>setRefreshing(false),2000);}
   const filtered=banks.filter(b=>fT==='All'||b.type===fT);
-  const groups=fG==='All'?BLOOD_GROUPS:[fG];
+  const groups=fG==='All'?TABLE_GROUPS:[fG];
   return <React.Fragment>
     <div style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)',padding:'28px 0'}}><div className="db-cnt">
       <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
@@ -1020,7 +1021,7 @@ function AvailPage(){
     <div className="db-pw"><div className="db-cnt">
     <div className="db-filter-bar">
       <label>Blood Group</label>
-      <select value={fG} onChange={e=>setFG(e.target.value)}><option>All</option>{BLOOD_GROUPS.map(bg=><option key={bg}>{bg}</option>)}</select>
+      <select value={fG} onChange={e=>setFG(e.target.value)}><option>All</option>{TABLE_GROUPS.map(bg=><option key={bg}>{bg}</option>)}</select>
       <label>Bank Type</label>
       <select value={fT} onChange={e=>setFT(e.target.value)}><option>All</option><option>Government</option><option>Private</option><option>Charitable</option></select>
     </div>
@@ -1167,4 +1168,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-}
+                         }
