@@ -728,12 +728,51 @@ function AreaPicker({label,req,placeholder,value,onChange,error,other,setOther})
 function areaErr(v,other){const s=(v||'').trim();if(!s)return 'Required';if(VIZAG_AREAS.some(a=>a.toLowerCase()===s.toLowerCase()))return '';if(!other)return 'Pick from the list or tap "My area isn\'t listed"';if(!/^[A-Za-z][A-Za-z0-9 .,'()\/-]{2,39}$/.test(s)||/^(.)\1+$/.test(s)||/(test|asdf|xxx|none|na|n\/a)$/i.test(s))return 'Enter a real area name';return '';}
 
 /* ── Donor Registration Form ── */
+function ThankYou({done,onClose,onPoster,goAvail}){
+  useEffect(()=>{if(!done)return;const k=e=>{if(e.key==='Escape')onClose();};window.addEventListener('keydown',k);return()=>window.removeEventListener('keydown',k);},[done]);
+  if(!done)return null;
+  const K=done.kind;
+  const C={
+    donor:{icon:'favorite',h:'Thank you, '+done.name+'!',sub:'You just became a lifesaver.',lead:'One donation can save up to 3 lives. By joining Vizag\u2019s donor network, you may be the reason a family gets good news someday.',steps:['Our team verifies your details','You appear on the donor list once approved','We may call you when a patient needs '+(done.bg?done.bg+' blood':'your blood group')]},
+    request:{icon:'volunteer_activism',h:'We\u2019re on it, '+done.name+'.',sub:'Your request is with our team.',lead:'We know this is a stressful time. Our volunteers will review your request and reach out to matching donors as fast as they can.',steps:['Our team verifies and publishes your request','Matching donors are contacted','Keep your phone nearby - we may call you']},
+    camp:{icon:'event_available',h:'Thank you, '+done.name+'!',sub:'You are helping Vizag give blood.',lead:'Every camp brings in units that save lives. Thank you for taking the lead and bringing your people together.',steps:['Our team reviews your request','We call you to fix the date, venue and logistics','Your camp is listed on Digi Blood once approved']}
+  }[K];
+  const pieces=Array.from({length:26},(_,i)=>({l:(i*37)%100,d:(i%7)*0.18,c:['#E63946','#FFC107','#2E9E5B','#1D6FB8','#F78FB3'][i%5],r:(i*53)%360}));
+  return <div className="db-modal-overlay" onClick={e=>{if(e.target===e.currentTarget)onClose();}}>
+    <div className="db-modal db-thanks" role="dialog" aria-label="Thank you">
+      <div className="db-confetti" aria-hidden="true">{pieces.map((p,i)=><i key={i} style={{left:p.l+'%',background:p.c,animationDelay:p.d+'s',transform:'rotate('+p.r+'deg)'}}/>)}</div>
+      <div className="db-thanks-body">
+        <div className="db-thanks-badge"><span className="material-symbols-outlined">{C.icon}</span></div>
+        <div className="db-thanks-h">{C.h}</div>
+        <div className="db-thanks-sub">{C.sub}</div>
+        <p className="db-thanks-lead">{C.lead}</p>
+        <div className="db-thanks-next"><b>What happens next</b><ol>{C.steps.map((x,i)=><li key={i}>{x}</li>)}</ol></div>
+        <div className="db-form-actions" style={{flexDirection:'column'}}>
+          {K==='request'&&<button type="button" className="db-btn db-btn-primary" onClick={()=>onPoster(done.poster)}><span className="material-symbols-outlined">campaign</span>Create Poster to Share</button>}
+          {K==='request'&&<button type="button" className="db-btn db-btn-outline" onClick={goAvail}><span className="material-symbols-outlined">water_drop</span>Check Blood Bank Stock</button>}
+          {K==='donor'&&<a className="db-btn db-btn-outline" style={{justifyContent:'center'}} target="_blank" rel="noopener" href={'https://wa.me/?text='+encodeURIComponent('I just registered as a blood donor with Vizag Volunteers - Digi Blood. You can too, it takes a minute: https://rakeshpola24-bit.github.io/digi-blood/#register')}><span className="material-symbols-outlined">share</span>Inspire a Friend to Donate</a>}
+          <button type="button" className={`db-btn ${K==='request'?'db-btn-outline':'db-btn-primary'}`} onClick={onClose}>Done</button>
+        </div>
+      </div>
+    </div>
+  </div>;
+}
+const SEEN_KEY='db_seen';
+async function sendRecord(kind,data,key){
+  if(typeof navigator!=='undefined'&&navigator.onLine===false)return{ok:false,msg:'You seem to be offline. Please check your internet and try again.'};
+  let seen={};try{seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'{}');}catch(e){}
+  const k=kind+':'+key;if(seen[k]&&Date.now()-seen[k]<86400000)return{ok:false,msg:kind==='donors'?'This number is already registered. Thank you - our team is reviewing it.':'You already sent this. Our team has it and will get in touch.'};
+  try{if(localStorage.getItem('db_dry')!=='1')await Promise.race([submitRecord(kind,data),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);}
+  catch(e){return{ok:false,msg:'Could not send right now. Please try again in a moment.'};}
+  seen[k]=Date.now();try{localStorage.setItem(SEEN_KEY,JSON.stringify(seen));}catch(e){}
+  return{ok:true};
+}
 const dbDone=d=>window.dispatchEvent(new CustomEvent('db-done',{detail:d}));
 const dbToast=(msg,type)=>window.dispatchEvent(new CustomEvent('db-toast',{detail:{msg,type}}));
 function DonorForm({open,onClose}){
   const INIT={name:'',phone:'',bg:'',area:'',age:'',lastDon:'first',note:''};
   const[f,setF]=useState(INIT);
-  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
+  const[errs,setErrs]=useState({});const[busy,setBusy]=useState(false);const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
   function close(){setAOther(false);setF(INIT);setErrs({});onClose();}
   function validate(){
@@ -745,13 +784,14 @@ function DonorForm({open,onClose}){
     const age=parseInt(f.age);if(!f.age||isNaN(age)||age<18||age>65)e.age='Must be 18–65';
     return e;
   }
-  function submit(ev){
+  async function submit(ev){
     ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const lastMap={first:'First time donor',gt6:'More than 6 months ago',lt6:'3–6 months ago',lt3:'Less than 3 months ago'};
     const msg=`Donor Registration — Vizag Volunteers Digi Blood\n\nName: ${f.name}\nPhone: ${f.phone}\nBlood Group: ${f.bg}\nAge: ${f.age}\nArea: ${f.area}\nLast Donation: ${lastMap[f.lastDon]}${f.note?'\nNotes: '+f.note:''}\n\nPlease add me to the Digi Blood donor network.`;
     const g=guard(ev);if(g==='consent')return;
-    if(g==='ok')submitRecord('donors',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,age:parseInt(f.age),area:f.area.trim(),lastDonation:f.lastDon,note:(f.note||'').slice(0,300)}).catch(()=>{});
-    if(location.hash==='#register')history.replaceState(null,'','#donors');dbDone({title:'You are registered!',msg:'Thank you for stepping up. Our team will review your details and add you to the donor network. We will call you when someone needs your blood group.',wa:msg});
+    if(g==='rate'){dbToast('Too many submissions from this device. Please try again after an hour.','err');return;}
+    if(g==='ok'){setBusy(true);const r=await sendRecord('donors',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,age:parseInt(f.age),area:f.area.trim(),lastDonation:f.lastDon,note:(f.note||'').slice(0,300)},f.phone.replace(/\D/g,''));setBusy(false);if(!r.ok){dbToast(r.msg,'err');return;}}
+    if(location.hash==='#register')history.replaceState(null,'','#donors');dbDone({kind:'donor',name:f.name.trim().split(/\s+/)[0],bg:f.bg});
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -766,7 +806,7 @@ function DonorForm({open,onClose}){
       <AreaPicker label="Area / Locality in Vizag" req placeholder="Start typing, e.g. MVP Colony" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Last Blood Donation</label><select className="db-input" value={f.lastDon} onChange={ch('lastDon')}><option value="first">First time donor</option><option value="gt6">More than 6 months ago</option><option value="lt6">3–6 months ago</option><option value="lt3">Less than 3 months ago</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Any medical conditions or preferences…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Registration</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>{busy?'Sending…':'Submit Registration'}</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our Digi Blood coordinator. Your details are reviewed by our team before being shown publicly.</div>
     </form>
   </Modal>;
@@ -776,7 +816,7 @@ function DonorForm({open,onClose}){
 function RequestForm({open,onClose,onSuccess}){
   const INIT={name:'',phone:'',bg:'',units:'1',hospital:'',area:'',urgency:'urgent',note:''};
   const[f,setF]=useState(INIT);
-  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
+  const[errs,setErrs]=useState({});const[busy,setBusy]=useState(false);const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
   function close(){setAOther(false);setF(INIT);setErrs({});onClose();}
   function validate(){
@@ -788,15 +828,16 @@ function RequestForm({open,onClose,onSuccess}){
     {const m=areaErr(f.area,aOther);if(m)e.area=m;}
     return e;
   }
-  function submit(ev){
+  async function submit(ev){
     ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const urgLabel={critical:'CRITICAL — Immediate',urgent:'Urgent — Few hours',routine:'Routine — Scheduled'}[f.urgency];
     const msg=`Blood Request — Vizag Volunteers Digi Blood\n\nPatient: ${f.name}\nContact: ${f.phone}\nBlood Group: ${f.bg}\nUnits: ${f.units}\nHospital: ${f.hospital}\nArea: ${f.area}\nUrgency: ${urgLabel}${f.note?'\nNotes: '+f.note:''}\n\nKindly help connect us with a matching donor. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
-    if(g==='ok')submitRecord('requests',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,units:parseInt(f.units),hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:(f.note||'').slice(0,300)}).catch(()=>{});
+    if(g==='rate'){dbToast('Too many submissions from this device. Please try again after an hour.','err');return;}
+    if(g==='ok'){setBusy(true);const r=await sendRecord('requests',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,units:parseInt(f.units),hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:(f.note||'').slice(0,300)},f.phone.replace(/\D/g,'')+f.hospital.trim().toLowerCase());setBusy(false);if(!r.ok){dbToast(r.msg,'err');return;}}
     
     close();
-    dbDone({title:'Request sent to our team',msg:'We will try to connect you with a matching donor. Create a poster to share with friends and groups so more people can help.',wa:msg,poster:{patient_name:f.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:(f.urgency||'').charAt(0).toUpperCase()+(f.urgency||'').slice(1),contact:f.phone}});
+    dbDone({kind:'request',name:f.name.trim().split(/\s+/)[0],poster:{patient_name:f.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:(f.urgency||'').charAt(0).toUpperCase()+(f.urgency||'').slice(1),contact:f.phone}});
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
   const IR=useRef();IR.current=Inp;const InpS=useMemo(()=>(pp)=>IR.current(pp),[]);
@@ -811,7 +852,7 @@ function RequestForm({open,onClose,onSuccess}){
       <AreaPicker label="Hospital Area" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Urgency <span>*</span></label><select className="db-input" value={f.urgency} onChange={ch('urgency')}><option value="critical">Critical — Needed immediately</option><option value="urgent">Urgent — Within a few hours</option><option value="routine">Routine — Scheduled procedure</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Reason, special requirements…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Request</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>{busy?'Sending…':'Submit Request'}</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our coordinator who will match you with a donor.</div>
     </form>
   </Modal>;
@@ -834,16 +875,17 @@ function ReqCard({req}){
 function CampForm({open,onClose}){
   const init={name:'',phone:'',org:'',date:'',venue:'',area:'',count:'',notes:''};
   const[f,setF]=useState(init);
-  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
+  const[errs,setErrs]=useState({});const[busy,setBusy]=useState(false);const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
   function close(){setAOther(false);setF(init);setErrs({});onClose();}
-  function validate(){const e={};if(!f.name.trim())e.name='Required';if(!f.phone.trim()||!/^\d{10}$/.test(f.phone.replace(/\s/g,'')))e.phone='Valid 10-digit number required';if(!f.venue.trim())e.venue='Required';{const m=areaErr(f.area,aOther);if(m)e.area=m;}return e;}
-  function submit(ev){
+  function validate(){const e={};if(!f.name.trim())e.name='Required';if(!f.phone.trim()||!/^\d{10}$/.test(f.phone.replace(/\s/g,'')))e.phone='Valid 10-digit number required';if(!f.venue.trim())e.venue='Required';if(!f.date)e.date='Pick a date';else if(f.date<new Date().toISOString().slice(0,10))e.date='Date must be today or later';{const m=areaErr(f.area,aOther);if(m)e.area=m;}return e;}
+  async function submit(ev){
     ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue: ${f.venue}\nArea: ${f.area}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
-    if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim()+', '+f.area.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
-    dbDone({title:'Camp request received',msg:'Thank you for organising a camp. Our team will contact you on the number you gave to plan the date and logistics.',wa:msg});
+    if(g==='rate'){dbToast('Too many submissions from this device. Please try again after an hour.','err');return;}
+    if(g==='ok'){setBusy(true);const r=await sendRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim()+', '+f.area.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'},f.phone.replace(/\D/g,'')+f.venue.trim().toLowerCase());setBusy(false);if(!r.ok){dbToast(r.msg,'err');return;}}
+    dbDone({kind:'camp',name:f.name.trim().split(/\s+/)[0]});
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -852,11 +894,11 @@ function CampForm({open,onClose}){
     <form onSubmit={submit} noValidate>
       <div className="db-form-row"><InpS k="name" label="Your Name" req placeholder="Full name"/><InpS k="phone" label="Phone Number" req placeholder="10-digit mobile" type="tel"/></div>
       <InpS k="org" label="Organisation / Company" placeholder="Company, college, RWA… (optional)"/>
-      <div className="db-form-row"><InpS k="date" label="Preferred Date" placeholder="" type="date"/><InpS k="count" label="Expected Participants" placeholder="e.g. 50" type="number" min="1"/></div>
+      <div className="db-form-row"><InpS k="date" label="Preferred Date" req placeholder="" type="date" min={new Date().toISOString().slice(0,10)}/><InpS k="count" label="Expected Participants" placeholder="e.g. 50" type="number" min="1"/></div>
       <InpS k="venue" label="Proposed Venue" req placeholder="e.g. JNTU Auditorium, college, office…"/>
       <AreaPicker label="Area / Locality" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.notes} onChange={ch('notes')} placeholder="Any special requirements or questions…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Camp Request</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>{busy?'Sending…':'Submit Camp Request'}</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Our team will contact you within 24 hours to finalise logistics, volunteers, and blood bank coordination.</div>
     </form>
   </Modal>;
@@ -1020,7 +1062,7 @@ function HomePage({setPage,openDonor,openReq}){
     <div className="db-callout-yellow"><h2>Blood Must Circulate</h2><p>Voluntary blood donation is the safest source. Join Vizag's network of heroes &mdash; every donation can save up to 3 lives.</p><div style={{display:'flex',gap:12,justifyContent:'center',flexWrap:'wrap'}}><button className="db-btn db-btn-primary db-btn-lg" onClick={openDonor}><span className="material-symbols-outlined">volunteer_activism</span>Register as Donor</button><button className="db-btn db-btn-dark db-btn-lg" onClick={()=>setPage('about')}>About Digi Blood</button></div></div>
     <div className="db-sec" style={{background:'#fff'}}><div className="db-cnt"><div className="db-grid-2">
       <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Top Donors</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('donors')}>View all donors &rarr;</button></div>
-        {donors.length===0?<div className="db-empty"><span className="material-symbols-outlined">volunteer_activism</span><b>Be the first donor</b><span>Register once and help Vizag in an emergency.</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div>:<div className="db-card"><div className="db-card-body">{donors.slice(0,5).map((d,i)=><div key={d.id} className="db-donor-row"><div className={`db-rank-num ${i<3?'top':''}`}>{['🥇','🥈','🥉'][i]||i+1}</div><div className="db-donor-av">{d.initials}</div><div className="db-donor-info"><div className="dn">{d.name}</div><div className="ds">{d.area} &middot; Last: {d.last}</div></div><div className="db-bg-chip sm">{d.bg}</div><div className="db-donor-count">{d.donations}</div></div>)}</div></div>}
+        {donors.length===0?<div className="db-empty"><span className="material-symbols-outlined">volunteer_activism</span><b>Be the first donor</b><span>Register once and help Vizag in an emergency.</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div>:<div className="db-card"><div className="db-card-body">{donors.slice(0,5).map((d,i)=><div key={d.id} className="db-donor-row"><div className={`db-rank-num ${i<3?'top':''}`}>{['🥇','🥈','🥉'][i]||i+1}</div><div className="db-donor-av">{d.initials}</div><div className="db-donor-info"><div className="dn">{d.name}</div><div className="ds">{d.area} &middot; Last: {d.last}</div></div><div className="db-bg-chip sm">{d.bg}</div><div className="db-donor-count">{d.donations>0?d.donations:<span style={{fontSize:11,fontWeight:700,color:'var(--db-secondary)'}}>NEW</span>}</div></div>)}</div></div>}
       </div>
       <div><div style={{display:'flex',alignItems:'center',justifyContent:'space-between',marginBottom:16}}><div className="db-sec-title" style={{fontSize:22,marginBottom:0}}>Upcoming Camps</div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('camps')}>View all camps &rarr;</button></div>
         {CAMPS.filter(c=>c.status==='upcoming').length===0?<div className="db-empty"><span className="material-symbols-outlined">event</span><b>No camps scheduled yet</b><span>Want to host one at your office or college?</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={()=>setPage('camps')}>View all camps &rarr;</button></div>:<div style={{display:'flex',flexDirection:'column',gap:12}}>{CAMPS.filter(c=>c.status==='upcoming').slice(0,3).map(c=><div key={c.id} className="db-card"><div className="db-card-body" style={{display:'flex',gap:14,alignItems:'flex-start'}}><div className="db-date-badge"><span className="day">{c.day}</span><span className="mon">{c.mon}</span></div><div style={{flex:1}}><div style={{fontWeight:700,fontSize:14}}>{c.title}</div><div style={{fontSize:13,color:'var(--db-secondary)',fontWeight:600}}>{c.organizer}</div><div style={{fontSize:13,color:'var(--db-gray-500)',marginTop:4}}>{c.venue}</div><div className="db-slot-bar mt-8"><div className="db-slot-fill" style={{width:Math.round(c.registered/c.slots*100)+'%'}}></div></div><div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:3}}>{c.registered}/{c.slots} slots filled</div></div><button className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div></div>)}</div>}
@@ -1130,7 +1172,7 @@ function DonorsPage({openDonor}){
     <div className="db-pw"><div className="db-cnt">
     <div className="db-grid-4 mb-24">{[{label:'Registered Donors',val:donors.length,icon:'people',c:'b'},{label:'Total Donations',val:donors.reduce((a,d)=>a+(d.donations||0),0),icon:'water_drop',c:'r'},{label:'Requests Fulfilled',val:REQ_ALL.filter(r=>r.status==='fulfilled').length,icon:'favorite',c:'g'}].filter(s=>s.val!==0).map((s,i)=><div key={i} className={`db-kpi-card ${s.c}`}><div className={`db-kpi-card__icon ${s.c}`}><span className="material-symbols-outlined">{s.icon}</span></div><div className="db-kpi-card__val">{s.val}</div><div className="db-kpi-card__label">{s.label}</div></div>)}</div>
     <div className="db-grid-2">
-      <div><div className="db-sec-title mb-16" style={{fontSize:22}}>Leaderboard</div>{donors.length===0?<div className="db-empty"><span className="material-symbols-outlined">emoji_events</span><b>Leaderboard is waiting for its first hero</b><span>Register as a donor and earn your first badge.</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div>:<div className="db-card"><div className="db-card-body">{donors.map((d,i)=><div key={d.id} className="db-donor-row"><div className={`db-rank-num ${i<3?'top':''}`}>{['🥇','🥈','🥉'][i]||i+1}</div><div className="db-donor-av">{d.initials}</div><div className="db-donor-info"><div className="dn">{d.name}</div><div className="ds">{d.area} &middot; Last: {d.last}</div></div><div className="db-bg-chip sm">{d.bg}</div><div style={{textAlign:'right'}}><div className="db-donor-count">{d.donations}</div><div style={{fontSize:11,color:'var(--db-gray-500)'}}>donations</div></div></div>)}</div></div>}</div>
+      <div><div className="db-sec-title mb-16" style={{fontSize:22}}>Leaderboard</div>{donors.length===0?<div className="db-empty"><span className="material-symbols-outlined">emoji_events</span><b>Leaderboard is waiting for its first hero</b><span>Register as a donor and earn your first badge.</span><button type="button" className="db-btn db-btn-primary db-btn-sm" onClick={openDonor}>Register as Donor</button></div>:<div className="db-card"><div className="db-card-body">{donors.map((d,i)=><div key={d.id} className="db-donor-row"><div className={`db-rank-num ${i<3?'top':''}`}>{['🥇','🥈','🥉'][i]||i+1}</div><div className="db-donor-av">{d.initials}</div><div className="db-donor-info"><div className="dn">{d.name}</div><div className="ds">{d.area} &middot; Last: {d.last}</div></div><div className="db-bg-chip sm">{d.bg}</div><div style={{textAlign:'right'}}><div className="db-donor-count">{d.donations>0?d.donations:<span style={{fontSize:11,fontWeight:700,color:'var(--db-secondary)'}}>NEW</span>}</div><div style={{fontSize:11,color:'var(--db-gray-500)'}}>donations</div></div></div>)}</div></div>}</div>
       <div>
         <div className="db-sec-title mb-16" style={{fontSize:22}}>Badges &amp; Milestones</div>
         <div style={{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:12,marginBottom:24}}>{BADGE_DEFS.map(b=><div key={b.id} className="db-badge-card"><div className={`db-badge-ico ${b.cls}`}>{b.emoji}</div><div className="db-badge-name">{b.name}</div><div className="db-badge-desc">{b.desc}</div></div>)}</div>
@@ -1213,14 +1255,7 @@ function DigiBloodApp(){
       <DonorForm open={donorOpen} onClose={()=>setDonorOpen(false)}/>
       <RequestForm open={reqOpen} onClose={()=>setReqOpen(false)} onSuccess={data=>{setReqOpen(false);setPosterData(data);}}/>
       <PosterModal req={posterData} onClose={()=>setPosterData(null)}/>
-      <Modal open={!!done} onClose={()=>setDone(null)} title={done?.title||''} sub="">
-        {done&&<div><div style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:16}}><span className="material-symbols-outlined" style={{color:'#2E9E5B',fontSize:36}}>check_circle</span><p style={{margin:0,fontSize:15,lineHeight:1.5}}>{done.msg}</p></div>
-        <div className="db-form-actions" style={{flexDirection:'column'}}>
-          {done.poster&&<button type="button" className="db-btn db-btn-primary" onClick={()=>{const p=done.poster;setDone(null);setPosterData(p);}}><span className="material-symbols-outlined">campaign</span>Create Poster</button>}
-          <button type="button" className={`db-btn ${done.poster?'db-btn-outline':'db-btn-primary'}`} onClick={()=>setDone(null)}>Done</button>
-          <a className="db-btn db-btn-outline" style={{justifyContent:'center'}} href={'https://wa.me/917337335556?text='+encodeURIComponent(done.wa)} target="_blank" rel="noopener"><span className="material-symbols-outlined">chat</span>Also send to team on WhatsApp (optional)</a>
-        </div></div>}
-      </Modal>
+      <ThankYou done={done} onClose={()=>setDone(null)} onPoster={p=>{setDone(null);setPosterData(p);}} goAvail={()=>{setDone(null);setPage('avail');window.scrollTo({top:0});}}/>
       <Toasts list={toasts}/>
     </div>
   </DataProvider></BloodProvider>;
@@ -1231,4 +1266,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                }
+  }
