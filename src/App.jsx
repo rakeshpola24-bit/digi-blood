@@ -1154,9 +1154,10 @@ function AboutPage(){
   </React.Fragment>;
 }
 function DigiBloodApp(){
-  const[page,setPage]=useState(()=>{const h=location.hash.slice(1);return ['avail','req','donors','camps','about'].includes(h)?h:'home'});
+  const[page,setPage]=useState(()=>{const h=location.hash.slice(1);return ['avail','req','donors','camps','about'].includes(h)?h:h==='register'?'donors':'home'});
   const[toasts,showToast]=useToast();
-  const[donorOpen,setDonorOpen]=useState(false);
+  const[donorOpen,setDonorOpen]=useState(()=>location.hash==='#register');
+  useEffect(()=>{const h=()=>{if(location.hash==='#register')setDonorOpen(true);};window.addEventListener('hashchange',h);return()=>window.removeEventListener('hashchange',h);},[]);
   const[reqOpen,setReqOpen]=useState(false);
   const[posterData,setPosterData]=useState(null);
   useEffect(()=>{document.title=PAGE_TITLES[page]||'Digi Blood';},[page]);
