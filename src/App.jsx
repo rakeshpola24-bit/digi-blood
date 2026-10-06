@@ -703,19 +703,42 @@ function PosterModal({req,onClose}){
   </div>;
 }
 
+const VIZAG_AREAS=['Akkayyapalem','Allipuram','Anakapalle','Anandapuram','Arilova','Arilova Colony','Asilmetta','Auto Nagar','Bheemunipatnam (Bheemili)','Birla Junction','Chinagadili','Chinamushidiwada','Chinnawaltair','Convent Junction','Dabagardens','Dondaparthy','Dwaraka Nagar','Endada','Gajuwaka','Gnanapuram','Gopalapatnam','Gopalapatnam Old','Hanumanthawaka','Health City','HB Colony','Isukathota','Jagadamba Junction','Jnana Puram','Kancharapalem','Kailasagiri','Kapuluppada','Kommadi','Kurmannapalem','Lawsons Bay Colony','Madhurawada','Maddilapalem','Maharani Peta','Marripalem','Mindi','MVP Colony','MVP Sector 1','MVP Sector 6','NAD Junction','Narava','Nakkavanipalem','Old Gajuwaka','One Town','Pedagantyada','Pedagadili','Pedawaltair','Pendurthi','Poorna Market','PM Palem','Port Area','Rama Talkies Road','Rushikonda','Sagar Nagar','Sampath Vinayaka Temple Road','Sankaramatham','Satyam Junction','Seethammadhara','Seethammapeta','Sheela Nagar','Simhachalam','Sriharipuram','Steel Plant Township','Siripuram','Tagarapuvalasa','Thatichetlapalem','Town Kotha Road','Tenneti Park','Vadlapudi','Vepagunta','Vijayanagaram Road','Visalakshi Nagar','Waltair Uplands','Yendada','Zilla Parishad Junction','Balayya Sastri Layout','Bowdara Road','Butchirajupalem','Ukkunagaram','Malkapuram','Kurupam Market','Venkojipalem','Lalitha Nagar','Bakkannapalem','Pothinamallayyapalem','Paradesipalem','Mudasarlova','Appughar','Relli Veedhi','Suryabagh','Resapuvanipalem','Jaggarajupeta'];
+function AreaPicker({label,req,placeholder,value,onChange,error,other,setOther}){
+  const[open,setOpen]=useState(false);
+  const q=(value||'').trim().toLowerCase();
+  const list=[...new Set(VIZAG_AREAS)].sort();
+  const hits=(q?list.filter(a=>a.toLowerCase().includes(q)).sort((a,b)=>(a.toLowerCase().startsWith(q)?0:1)-(b.toLowerCase().startsWith(q)?0:1)):list).slice(0,8);
+  const exact=list.some(a=>a.toLowerCase()===q);
+  return <div className="db-form-group" style={{position:'relative'}}>
+    <label className="db-form-label">{label}{req&&<span> *</span>}</label>
+    <input className={`db-input${error?' err':''}`} value={value} autoComplete="off" placeholder={other?'Type your area name':placeholder}
+      onFocus={()=>setOpen(true)} onBlur={()=>setTimeout(()=>setOpen(false),180)}
+      onChange={e=>{onChange(e.target.value);setOpen(true);}}/>
+    {open&&!other&&!exact&&<div className="db-ac">
+      {hits.map(a=><button type="button" key={a} className="db-ac-item" onMouseDown={e=>e.preventDefault()} onClick={()=>{onChange(a);setOther(false);setOpen(false);}}><span className="material-symbols-outlined">location_on</span>{a}</button>)}
+      <button type="button" className="db-ac-item other" onMouseDown={e=>e.preventDefault()} onClick={()=>{setOther(true);setOpen(false);}}><span className="material-symbols-outlined">edit_location</span>My area isn't listed</button>
+    </div>}
+    {other&&<div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:4}}>Custom area. Staff will check it. <a href="#" onClick={e=>{e.preventDefault();setOther(false);onChange('');}} style={{color:'var(--db-primary)'}}>Pick from list instead</a></div>}
+    {!other&&!exact&&(value||'').trim()&&!open&&<div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:4}}>Choose an area from the list, or tap "My area isn't listed".</div>}
+    {error&&<div className="db-form-err">{error}</div>}
+  </div>;
+}
+function areaErr(v,other){const s=(v||'').trim();if(!s)return 'Required';if(VIZAG_AREAS.some(a=>a.toLowerCase()===s.toLowerCase()))return '';if(!other)return 'Pick from the list or tap "My area isn\'t listed"';if(!/^[A-Za-z][A-Za-z0-9 .,'()\/-]{2,39}$/.test(s)||/^(.)\1+$/.test(s)||/(test|asdf|xxx|none|na|n\/a)$/i.test(s))return 'Enter a real area name';return '';}
+
 /* ── Donor Registration Form ── */
 function DonorForm({open,onClose}){
   const INIT={name:'',phone:'',bg:'',area:'',age:'',lastDon:'first',note:''};
   const[f,setF]=useState(INIT);
-  const[errs,setErrs]=useState({});
+  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
-  function close(){setF(INIT);setErrs({});onClose();}
+  function close(){setAOther(false);setF(INIT);setErrs({});onClose();}
   function validate(){
     const e={};
     if(!f.name.trim())e.name='Required';
     if(!/^\d{10}$/.test(f.phone.replace(/\D/g,'')))e.phone='Enter valid 10-digit number';
     if(!f.bg)e.bg='Select blood group';
-    if(!f.area.trim())e.area='Required';
+    {const m=areaErr(f.area,aOther);if(m)e.area=m;}
     const age=parseInt(f.age);if(!f.age||isNaN(age)||age<18||age>65)e.age='Must be 18–65';
     return e;
   }
@@ -737,7 +760,7 @@ function DonorForm({open,onClose}){
         <div className="db-form-group"><label className="db-form-label">Blood Group <span>*</span></label><select className={`db-input${errs.bg?' err':''}`} value={f.bg} onChange={ch('bg')}><option value="">Select…</option>{BLOOD_GROUPS.map(g=><option key={g}>{g}</option>)}</select>{errs.bg&&<div className="db-form-err">{errs.bg}</div>}</div>
         <InpS k="age" label="Age" req placeholder="18–65" type="number" min="18" max="65"/>
       </div>
-      <InpS k="area" label="Area / Locality in Vizag" req placeholder="e.g. MVP Colony, Dwaraka Nagar…"/>
+      <AreaPicker label="Area / Locality in Vizag" req placeholder="Start typing, e.g. MVP Colony" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Last Blood Donation</label><select className="db-input" value={f.lastDon} onChange={ch('lastDon')}><option value="first">First time donor</option><option value="gt6">More than 6 months ago</option><option value="lt6">3–6 months ago</option><option value="lt3">Less than 3 months ago</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Any medical conditions or preferences…" style={{resize:'vertical'}}/></div>
       <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
@@ -750,16 +773,16 @@ function DonorForm({open,onClose}){
 function RequestForm({open,onClose,onSuccess}){
   const INIT={name:'',phone:'',bg:'',units:'1',hospital:'',area:'',urgency:'urgent',note:''};
   const[f,setF]=useState(INIT);
-  const[errs,setErrs]=useState({});
+  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
-  function close(){setF(INIT);setErrs({});onClose();}
+  function close(){setAOther(false);setF(INIT);setErrs({});onClose();}
   function validate(){
     const e={};
     if(!f.name.trim())e.name='Required';
     if(!/^\d{10}$/.test(f.phone.replace(/\D/g,'')))e.phone='Enter valid 10-digit number';
     if(!f.bg)e.bg='Select blood group';
     if(!f.hospital.trim())e.hospital='Required';
-    if(!f.area.trim())e.area='Required';
+    {const m=areaErr(f.area,aOther);if(m)e.area=m;}
     return e;
   }
   function submit(ev){
@@ -782,7 +805,7 @@ function RequestForm({open,onClose,onSuccess}){
         <div className="db-form-group"><label className="db-form-label">Units Needed <span>*</span></label><select className="db-input" value={f.units} onChange={ch('units')}>{[1,2,3,4,5,6,7,8,9,10].map(n=><option key={n}>{n}</option>)}</select></div>
       </div>
       <InpS k="hospital" label="Hospital Name" req placeholder="e.g. KGH, Apollo, Care Hospital…"/>
-      <InpS k="area" label="Hospital Area" req placeholder="Area where hospital is located"/>
+      <AreaPicker label="Hospital Area" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Urgency <span>*</span></label><select className="db-input" value={f.urgency} onChange={ch('urgency')}><option value="critical">Critical — Needed immediately</option><option value="urgent">Urgent — Within a few hours</option><option value="routine">Routine — Scheduled procedure</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Reason, special requirements…" style={{resize:'vertical'}}/></div>
       <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
@@ -806,17 +829,17 @@ function ReqCard({req}){
 }
 /* ── CampForm ── */
 function CampForm({open,onClose}){
-  const init={name:'',phone:'',org:'',date:'',venue:'',count:'',notes:''};
+  const init={name:'',phone:'',org:'',date:'',venue:'',area:'',count:'',notes:''};
   const[f,setF]=useState(init);
-  const[errs,setErrs]=useState({});
+  const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);
   function ch(k){return e=>setF(p=>({...p,[k]:e.target.value}));}
-  function close(){setF(init);setErrs({});onClose();}
-  function validate(){const e={};if(!f.name.trim())e.name='Required';if(!f.phone.trim()||!/^\d{10}$/.test(f.phone.replace(/\s/g,'')))e.phone='Valid 10-digit number required';if(!f.venue.trim())e.venue='Required';return e;}
+  function close(){setAOther(false);setF(init);setErrs({});onClose();}
+  function validate(){const e={};if(!f.name.trim())e.name='Required';if(!f.phone.trim()||!/^\d{10}$/.test(f.phone.replace(/\s/g,'')))e.phone='Valid 10-digit number required';if(!f.venue.trim())e.venue='Required';{const m=areaErr(f.area,aOther);if(m)e.area=m;}return e;}
   function submit(ev){
     ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
-    const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue / Area: ${f.venue}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
+    const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue: ${f.venue}\nArea: ${f.area}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
-    if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
+    if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim()+', '+f.area.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
     window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
     close();
   }
@@ -827,7 +850,8 @@ function CampForm({open,onClose}){
       <div className="db-form-row"><InpS k="name" label="Your Name" req placeholder="Full name"/><InpS k="phone" label="Phone Number" req placeholder="10-digit mobile" type="tel"/></div>
       <InpS k="org" label="Organisation / Company" placeholder="Company, college, RWA… (optional)"/>
       <div className="db-form-row"><InpS k="date" label="Preferred Date" placeholder="" type="date"/><InpS k="count" label="Expected Participants" placeholder="e.g. 50" type="number" min="1"/></div>
-      <InpS k="venue" label="Proposed Venue / Area" req placeholder="e.g. JNTU Auditorium, Kakinada Road…"/>
+      <InpS k="venue" label="Proposed Venue" req placeholder="e.g. JNTU Auditorium, college, office…"/>
+      <AreaPicker label="Area / Locality" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.notes} onChange={ch('notes')} placeholder="Any special requirements or questions…" style={{resize:'vertical'}}/></div>
       <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Our team will contact you within 24 hours to finalise logistics, volunteers, and blood bank coordination.</div>
