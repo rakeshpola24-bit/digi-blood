@@ -1,4 +1,4 @@
-import React,{useState,useEffect,useContext,createContext,useCallback,useRef} from 'react';
+import React,{useState,useEffect,useContext,createContext,useCallback,useRef,useMemo} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
 import {LIVE,watch,guard,submitRecord} from './store.js';
@@ -720,7 +720,7 @@ function DonorForm({open,onClose}){
     return e;
   }
   function submit(ev){
-    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length)return;
+    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const lastMap={first:'First time donor',gt6:'More than 6 months ago',lt6:'3–6 months ago',lt3:'Less than 3 months ago'};
     const msg=`Donor Registration — Vizag Volunteers Digi Blood\n\nName: ${f.name}\nPhone: ${f.phone}\nBlood Group: ${f.bg}\nAge: ${f.age}\nArea: ${f.area}\nLast Donation: ${lastMap[f.lastDon]}${f.note?'\nNotes: '+f.note:''}\n\nPlease add me to the Digi Blood donor network.`;
     const g=guard(ev);if(g==='consent')return;
@@ -729,17 +729,18 @@ function DonorForm({open,onClose}){
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
+  const IR=useRef();IR.current=Inp;const InpS=useMemo(()=>(pp)=>IR.current(pp),[]);
   return <Modal open={open} onClose={close} title="Register as Donor" sub="Join Vizag's voluntary blood donor network">
     <form onSubmit={submit} noValidate>
-      <div className="db-form-row"><Inp k="name" label="Full Name" req placeholder="Your name"/><Inp k="phone" label="Phone" req placeholder="10-digit mobile" type="tel"/></div>
+      <div className="db-form-row"><InpS k="name" label="Full Name" req placeholder="Your name"/><InpS k="phone" label="Phone" req placeholder="10-digit mobile" type="tel"/></div>
       <div className="db-form-row">
         <div className="db-form-group"><label className="db-form-label">Blood Group <span>*</span></label><select className={`db-input${errs.bg?' err':''}`} value={f.bg} onChange={ch('bg')}><option value="">Select…</option>{BLOOD_GROUPS.map(g=><option key={g}>{g}</option>)}</select>{errs.bg&&<div className="db-form-err">{errs.bg}</div>}</div>
-        <Inp k="age" label="Age" req placeholder="18–65" type="number" min="18" max="65"/>
+        <InpS k="age" label="Age" req placeholder="18–65" type="number" min="18" max="65"/>
       </div>
-      <Inp k="area" label="Area / Locality in Vizag" req placeholder="e.g. MVP Colony, Dwaraka Nagar…"/>
+      <InpS k="area" label="Area / Locality in Vizag" req placeholder="e.g. MVP Colony, Dwaraka Nagar…"/>
       <div className="db-form-group"><label className="db-form-label">Last Blood Donation</label><select className="db-input" value={f.lastDon} onChange={ch('lastDon')}><option value="first">First time donor</option><option value="gt6">More than 6 months ago</option><option value="lt6">3–6 months ago</option><option value="lt3">Less than 3 months ago</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Any medical conditions or preferences…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">whatsapp</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our Digi Blood coordinator. Your details are reviewed by our team before being shown publicly.</div>
     </form>
   </Modal>;
@@ -762,7 +763,7 @@ function RequestForm({open,onClose,onSuccess}){
     return e;
   }
   function submit(ev){
-    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length)return;
+    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const urgLabel={critical:'CRITICAL — Immediate',urgent:'Urgent — Few hours',routine:'Routine — Scheduled'}[f.urgency];
     const msg=`Blood Request — Vizag Volunteers Digi Blood\n\nPatient: ${f.name}\nContact: ${f.phone}\nBlood Group: ${f.bg}\nUnits: ${f.units}\nHospital: ${f.hospital}\nArea: ${f.area}\nUrgency: ${urgLabel}${f.note?'\nNotes: '+f.note:''}\n\nKindly help connect us with a matching donor. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
@@ -772,18 +773,19 @@ function RequestForm({open,onClose,onSuccess}){
     if(onSuccess)onSuccess({name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:f.urgency,contact:f.phone});
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
+  const IR=useRef();IR.current=Inp;const InpS=useMemo(()=>(pp)=>IR.current(pp),[]);
   return <Modal open={open} onClose={close} title="Request Blood" sub="We'll connect you with a matching donor as soon as possible">
     <form onSubmit={submit} noValidate>
-      <div className="db-form-row"><Inp k="name" label="Patient Name" req placeholder="Full name"/><Inp k="phone" label="Contact Number" req placeholder="10-digit mobile" type="tel"/></div>
+      <div className="db-form-row"><InpS k="name" label="Patient Name" req placeholder="Full name"/><InpS k="phone" label="Contact Number" req placeholder="10-digit mobile" type="tel"/></div>
       <div className="db-form-row">
         <div className="db-form-group"><label className="db-form-label">Blood Group <span>*</span></label><select className={`db-input${errs.bg?' err':''}`} value={f.bg} onChange={ch('bg')}><option value="">Select…</option><option value="Any">Any Blood Group</option>{BLOOD_GROUPS.map(g=><option key={g}>{g}</option>)}</select>{errs.bg&&<div className="db-form-err">{errs.bg}</div>}</div>
         <div className="db-form-group"><label className="db-form-label">Units Needed <span>*</span></label><select className="db-input" value={f.units} onChange={ch('units')}>{[1,2,3,4,5,6,7,8,9,10].map(n=><option key={n}>{n}</option>)}</select></div>
       </div>
-      <Inp k="hospital" label="Hospital Name" req placeholder="e.g. KGH, Apollo, Care Hospital…"/>
-      <Inp k="area" label="Hospital Area" req placeholder="Area where hospital is located"/>
+      <InpS k="hospital" label="Hospital Name" req placeholder="e.g. KGH, Apollo, Care Hospital…"/>
+      <InpS k="area" label="Hospital Area" req placeholder="Area where hospital is located"/>
       <div className="db-form-group"><label className="db-form-label">Urgency <span>*</span></label><select className="db-input" value={f.urgency} onChange={ch('urgency')}><option value="critical">Critical — Needed immediately</option><option value="urgent">Urgent — Within a few hours</option><option value="routine">Routine — Scheduled procedure</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Reason, special requirements…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">whatsapp</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our coordinator who will match you with a donor.</div>
     </form>
   </Modal>;
@@ -811,7 +813,7 @@ function CampForm({open,onClose}){
   function close(){setF(init);setErrs({});onClose();}
   function validate(){const e={};if(!f.name.trim())e.name='Required';if(!f.phone.trim()||!/^\d{10}$/.test(f.phone.replace(/\s/g,'')))e.phone='Valid 10-digit number required';if(!f.venue.trim())e.venue='Required';return e;}
   function submit(ev){
-    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length)return;
+    ev.preventDefault();const e=validate();setErrs(e);if(Object.keys(e).length){setTimeout(()=>document.querySelector('.db-input.err')?.scrollIntoView({block:'center',behavior:'smooth'}),60);return;}
     const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue / Area: ${f.venue}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
@@ -819,14 +821,15 @@ function CampForm({open,onClose}){
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
+  const IR=useRef();IR.current=Inp;const InpS=useMemo(()=>(pp)=>IR.current(pp),[]);
   return <Modal open={open} onClose={close} title="Organise a Blood Donation Camp" sub="Fill in your details and we'll get back to you to plan the camp">
     <form onSubmit={submit} noValidate>
-      <div className="db-form-row"><Inp k="name" label="Your Name" req placeholder="Full name"/><Inp k="phone" label="Phone Number" req placeholder="10-digit mobile" type="tel"/></div>
-      <Inp k="org" label="Organisation / Company" placeholder="Company, college, RWA… (optional)"/>
-      <div className="db-form-row"><Inp k="date" label="Preferred Date" placeholder="" type="date"/><Inp k="count" label="Expected Participants" placeholder="e.g. 50" type="number" min="1"/></div>
-      <Inp k="venue" label="Proposed Venue / Area" req placeholder="e.g. JNTU Auditorium, Kakinada Road…"/>
+      <div className="db-form-row"><InpS k="name" label="Your Name" req placeholder="Full name"/><InpS k="phone" label="Phone Number" req placeholder="10-digit mobile" type="tel"/></div>
+      <InpS k="org" label="Organisation / Company" placeholder="Company, college, RWA… (optional)"/>
+      <div className="db-form-row"><InpS k="date" label="Preferred Date" placeholder="" type="date"/><InpS k="count" label="Expected Participants" placeholder="e.g. 50" type="number" min="1"/></div>
+      <InpS k="venue" label="Proposed Venue / Area" req placeholder="e.g. JNTU Auditorium, Kakinada Road…"/>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.notes} onChange={ch('notes')} placeholder="Any special requirements or questions…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">whatsapp</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Our team will contact you within 24 hours to finalise logistics, volunteers, and blood bank coordination.</div>
     </form>
   </Modal>;
@@ -1168,4 +1171,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-}
+                                                                                                                                                                                                                                                                                                                        }
