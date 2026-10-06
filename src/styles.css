@@ -389,3 +389,40 @@ table a[href^="tel"],td a{display:inline-block;padding:6px 0;}
   .db-grid-4:has(.db-bg-chip.lg) .db-card-body > div:nth-child(2){font-size:12px!important;}
   .db-grid-4:has(.db-bg-chip.lg) .db-card-body > div:nth-child(3){display:none;}
 }
+/* availability cards (phone) */
+.db-bank-cards{display:none;}
+.db-acc{margin-bottom:14px;background:#fff;border:1px solid var(--db-gray-200);border-radius:12px;padding:0 14px;}
+.db-acc > summary{list-style:none;cursor:pointer;font-family:var(--db-font-head);font-weight:700;font-size:18px;letter-spacing:.04em;text-transform:uppercase;padding:14px 0;display:flex;justify-content:space-between;align-items:center;}
+.db-acc > summary::-webkit-details-marker{display:none;}
+.db-acc > summary::after{content:'+';font-size:22px;color:var(--db-secondary);}
+.db-acc[open] > summary::after{content:'\2212';}
+.db-acc[open] > summary{border-bottom:1px solid var(--db-gray-200);margin-bottom:12px;}
+.db-acc > .db-card,.db-acc > div{margin-bottom:14px;}
+@media(max-width:768px){
+  .db-avail-wrap{display:none;}
+  .db-bank-cards{display:flex;flex-direction:column;gap:12px;}
+  .db-bank-card{background:#fff;border:1px solid var(--db-gray-200);border-radius:14px;padding:14px;box-shadow:0 1px 3px rgba(0,0,0,.04);}
+  .db-bank-head{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;}
+  .db-bank-name{font-weight:700;font-size:15px;line-height:1.3;}
+  .db-bank-area{display:flex;align-items:center;gap:2px;font-size:12px;color:var(--db-gray-500);margin-top:3px;}
+  .db-bank-area .material-symbols-outlined{font-size:14px;}
+  .db-bank-type{font-size:11px;font-weight:700;padding:3px 8px;border-radius:6px;white-space:nowrap;}
+  .db-bank-groups{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:12px 0 8px;}
+  .db-bank-g{border-radius:8px;padding:6px 2px;text-align:center;display:flex;flex-direction:column;line-height:1.15;}
+  .db-bank-g b{font-size:13px;} .db-bank-g span{font-size:15px;font-weight:700;}
+  .db-bank-foot{font-size:11.5px;color:var(--db-gray-500);margin-bottom:10px;}
+  .db-bank-actions{display:flex;gap:8px;}
+  .db-bank-actions .db-btn{flex:1;justify-content:center;min-height:42px;text-decoration:none;}
+  .db-bank-actions .db-btn-wa{color:#fff;}
+  .db-acc{padding:0 12px;}
+}
+@media(max-width:768px){
+  .db-carousel-slide .db-cnt > div:last-child{display:none!important;}
+  .db-carousel-slide .db-cnt > div:first-child > div:last-child{margin-top:20px;}
+  .db-carousel-slide{min-height:0;padding-bottom:30px;}
+  .db-stats-strip-inner{grid-template-columns:repeat(auto-fit,minmax(130px,1fr))!important;}
+  .db-stat-item{text-align:center;}
+}
+.db-share-row{flex-wrap:wrap;}
+.db-share-row .db-btn{min-width:calc(50% - 8px);}
+@media(max-width:768px){.db-share-row .db-btn{min-width:calc(33% - 6px);font-size:12px;padding:8px 4px;}}
