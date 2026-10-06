@@ -1,0 +1,39 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function staff() { return request.auth != null; }
+    function str(f, max) { return f is string && f.size() > 0 && f.size() <= max; }
+    // Public: read only approved records. Create only as pending, with size limits.
+    match /requests/{id} {
+      allow read: if resource.data.status == 'approved' || staff();
+      allow create: if request.resource.data.status == 'pending'
+        && str(request.resource.data.name, 80) && str(request.resource.data.phone, 15)
+        && str(request.resource.data.bg, 4) && str(request.resource.data.hospital, 120)
+        && str(request.resource.data.area, 80) && request.resource.data.units is int
+        && request.resource.data.units >= 1 && request.resource.data.units <= 10
+        && request.resource.data.keys().hasOnly(['name','phone','bg','units','hospital','area','urgency','note','status','createdAt']);
+      allow update, delete: if staff();
+    }
+    match /donors/{id} {
+      allow read: if resource.data.status == 'approved' || staff();
+      allow create: if request.resource.data.status == 'pending'
+        && str(request.resource.data.name, 80)
+        && str(request.resource.data.bg, 4) && str(request.resource.data.area, 80)
+        && request.resource.data.age is int && request.resource.data.age >= 18 && request.resource.data.age <= 65
+        && request.resource.data.keys().hasOnly(['name','bg','age','area','lastDonation','note','status','createdAt']);
+      allow update, delete: if staff();
+    }
+    // Donor phone numbers: anyone can add one, only staff can read.
+    match /donorContacts/{id} {
+      allow create: if str(request.resource.data.phone, 15) && request.resource.data.keys().hasOnly(['phone','createdAt']);
+      allow read, update, delete: if staff();
+    }
+    match /camps/{id} {
+      allow read: if resource.data.status == 'approved' || staff();
+      allow create: if request.resource.data.status == 'pending'
+        && str(request.resource.data.venue, 160) && str(request.resource.data.organizer, 80)
+        && request.resource.data.keys().hasOnly(['organizer','contact','org','date','venue','slots','note','title','status','createdAt']);
+      allow update, delete: if staff();
+    }
+  }
+}
