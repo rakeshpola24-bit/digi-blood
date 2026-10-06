@@ -19,7 +19,7 @@ const initials = n => (n || '?').split(/\s+/).map(s => s[0]).slice(0, 2).join(''
 
 export const mappers = {
   requests: (id, x) => ({ id, name: x.name, bg: x.bg, units: x.units, hospital: x.hospital, area: x.area, urgency: x.urgency, status: x.progress || 'open', contact: x.phone, postedAgo: ago(x.createdAt), note: x.note || '' }),
-  donors: (id, x) => ({ id, name: x.name, initials: initials(x.name), bg: x.bg, donations: x.donations || 0, last: x.lastDonation || '-', area: x.area }),
+  donors: (id, x) => ({ id, name: x.name, initials: initials(x.name), bg: x.bg, donations: x.donations || 0, last: ({first:'First donation soon',gt6:'6+ months ago',lt6:'3-6 months ago',lt3:'Under 3 months ago'})[x.lastDonation] || x.lastDonation || '-', area: x.area }),
   camps: (id, x) => {
     const d = x.date ? new Date(x.date + 'T00:00:00') : null;
     return { id, title: x.title || 'Blood donation camp', organizer: x.organizer || x.org || '', day: d ? String(d.getDate()) : '', mon: d ? MON[d.getMonth()] : '', venue: x.venue, slots: x.slots || 0, registered: x.registered || 0, status: d && d < new Date(new Date().toDateString()) ? 'past' : 'upcoming', contact: x.contact || '' };
@@ -30,7 +30,8 @@ export const mappers = {
 export function watch(name, cb) {
   if (!LIVE) return () => {};
   const q = query(collection(db, name), where('status', '==', 'approved'));
-  return onSnapshot(q, s => cb(s.docs.map(d => mappers[name](d.id, d.data()))), () => {});
+  const fresh = d => name !== 'requests' || d.progress || !d.createdAt || !d.createdAt.toDate || Date.now() - d.createdAt.toDate().getTime() < 7 * 86400000;
+  return onSnapshot(q, s => cb(s.docs.filter(d => fresh(d.data())).map(d => mappers[name](d.id, d.data()))), () => {});
 }
 
 // Spam guard: max 5 submissions per hour per browser.
