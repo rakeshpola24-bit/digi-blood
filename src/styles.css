@@ -375,3 +375,8 @@ html,body{overflow-x:hidden;}
   .db-filter-bar{display:grid!important;grid-template-columns:1fr 1fr;gap:10px;}
   .db-filter-bar > input[type="text"]{grid-column:1/-1;}
 }
+select.db-input{-webkit-appearance:none;appearance:none;background:#fff url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' fill='none' stroke='%23666' stroke-width='2'/%3E%3C/svg%3E") no-repeat right 14px center;padding-right:38px;}
+input[type=number]{-moz-appearance:textfield;}
+input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0;}
+.db-input{font-size:16px;}
+table a[href^="tel"],td a{display:inline-block;padding:6px 0;}
