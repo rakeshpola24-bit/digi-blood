@@ -881,7 +881,7 @@ function HeroCarousel({setPage,openDonor,openReq}){
           <div className="db-label">Live Blood Availability &middot; All Banks</div>
           {loading?<div style={{textAlign:'center',padding:'24px 0',color:'var(--db-gray-500)',fontSize:13}}><span className="material-symbols-outlined" style={{fontSize:28,display:'block',marginBottom:6,animation:'spin 1s linear infinite'}}>progress_activity</span>Loading&hellip;</div>
           :<div className="db-bg-tile-grid">{BLOOD_GROUPS.map(bg=>{const tot=groupTotalLive(banks,bg);return <div key={bg} className="db-bg-tile" onClick={()=>setPage('avail')}><div className="db-bg-label">{bg}</div><div className={`db-avail-tag ${availCls(tot)}`}>{availLbl(tot)}</div></div>;})}</div>}
-          <div style={{marginTop:12,fontSize:12,color:'var(--db-gray-500)',textAlign:'center'}}>Click to view bank-wise details &rarr;</div>
+          <div style={{marginTop:12,fontSize:12,color:'var(--db-gray-500)',textAlign:'center'}}>Tap to see bank-wise details &rarr;</div>
         </div>
       </div>
     </div>,
@@ -978,10 +978,10 @@ function HomePage({setPage,openDonor,openReq}){
   const critCount=openReqs.filter(r=>r.urgency==='critical').length;
   return <React.Fragment>
     <HeroCarousel setPage={setPage} openDonor={openDonor} openReq={openReq}/>
-    <div className="db-stats-strip"><div className="db-stats-strip-inner">{[{val:donors.length,label:'Registered Donors',sub:'Vizag network'},{val:CAMPS.filter(c=>c.status==='upcoming').length,label:'Upcoming Camps',sub:'Join one near you'},{val:openReqs.length,label:'Open Requests',sub:critCount+' critical'},{val:banks.length,label:'Blood Banks',sub:'Stock updated hourly'}].map((s,i)=><div key={i} className="db-stat-item"><div className="db-stat-item__val">{s.val}</div><div className="db-stat-item__label">{s.label}</div><div className="db-stat-item__sub">{s.sub}</div></div>)}</div></div>
+    <div className="db-stats-strip"><div className="db-stats-strip-inner">{[{val:donors.length,label:'Registered Donors',sub:'Vizag network'},{val:CAMPS.filter(c=>c.status==='upcoming').length,label:'Upcoming Camps',sub:'Join one near you'},{val:openReqs.length,label:'Open Requests',sub:critCount+' critical'},{val:banks.length,label:'Blood Banks',sub:'Stock updated every 30 min'}].filter(x=>x.val>0).map((s,i)=><div key={i} className="db-stat-item"><div className="db-stat-item__val">{s.val}</div><div className="db-stat-item__label">{s.label}</div><div className="db-stat-item__sub">{s.sub}</div></div>)}</div></div>
     <div className="db-sec" style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)'}}><div className="db-cnt">
       <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Urgent Requests</div><div className="db-sec-sub">Help someone today &mdash; your blood can be the difference</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('req')}>View all &rarr;</button></div>
-      <div className="db-grid-3">{REQUESTS.filter(r=>r.status==='open').slice(0,3).map(r=><ReqCard key={r.id} req={r}/>)}</div>
+      {REQUESTS.filter(r=>r.status==='open').length===0?<div className="db-empty"><span className="material-symbols-outlined">task_alt</span><b>No urgent requests right now</b><span>Need blood for a patient? Tap Request Blood at the top.</span></div>:<div className="db-grid-3">{REQUESTS.filter(r=>r.status==='open').slice(0,3).map(r=><ReqCard key={r.id} req={r}/>)}</div>}
     </div></div>
     <div className="db-sec"><div className="db-cnt">
       <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',marginBottom:20}}><div><div className="db-sec-title">Blood Availability</div><div className="db-sec-sub">Aggregated stock across Vizag blood banks &middot; Live from eRaktKosh</div></div><button className="db-btn db-btn-outline db-btn-sm" onClick={()=>setPage('avail')}>Detailed view &rarr;</button></div>
@@ -1168,4 +1168,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-                         }
+}
