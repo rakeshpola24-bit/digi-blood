@@ -728,6 +728,7 @@ function AreaPicker({label,req,placeholder,value,onChange,error,other,setOther})
 function areaErr(v,other){const s=(v||'').trim();if(!s)return 'Required';if(VIZAG_AREAS.some(a=>a.toLowerCase()===s.toLowerCase()))return '';if(!other)return 'Pick from the list or tap "My area isn\'t listed"';if(!/^[A-Za-z][A-Za-z0-9 .,'()\/-]{2,39}$/.test(s)||/^(.)\1+$/.test(s)||/(test|asdf|xxx|none|na|n\/a)$/i.test(s))return 'Enter a real area name';return '';}
 
 /* ── Donor Registration Form ── */
+const dbDone=d=>window.dispatchEvent(new CustomEvent('db-done',{detail:d}));
 const dbToast=(msg,type)=>window.dispatchEvent(new CustomEvent('db-toast',{detail:{msg,type}}));
 function DonorForm({open,onClose}){
   const INIT={name:'',phone:'',bg:'',area:'',age:'',lastDon:'first',note:''};
@@ -750,7 +751,7 @@ function DonorForm({open,onClose}){
     const msg=`Donor Registration — Vizag Volunteers Digi Blood\n\nName: ${f.name}\nPhone: ${f.phone}\nBlood Group: ${f.bg}\nAge: ${f.age}\nArea: ${f.area}\nLast Donation: ${lastMap[f.lastDon]}${f.note?'\nNotes: '+f.note:''}\n\nPlease add me to the Digi Blood donor network.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('donors',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,age:parseInt(f.age),area:f.area.trim(),lastDonation:f.lastDon,note:(f.note||'').slice(0,300)}).catch(()=>{});
-    dbToast('Thank you! Your registration is sent to our team for approval. Tap Send in WhatsApp to finish.');if(location.hash==='#register')history.replaceState(null,'','#donors');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    if(location.hash==='#register')history.replaceState(null,'','#donors');dbDone({title:'You are registered!',msg:'Thank you for stepping up. Our team will review your details and add you to the donor network. We will call you when someone needs your blood group.',wa:msg});
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -765,7 +766,7 @@ function DonorForm({open,onClose}){
       <AreaPicker label="Area / Locality in Vizag" req placeholder="Start typing, e.g. MVP Colony" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Last Blood Donation</label><select className="db-input" value={f.lastDon} onChange={ch('lastDon')}><option value="first">First time donor</option><option value="gt6">More than 6 months ago</option><option value="lt6">3–6 months ago</option><option value="lt3">Less than 3 months ago</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Any medical conditions or preferences…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Registration</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our Digi Blood coordinator. Your details are reviewed by our team before being shown publicly.</div>
     </form>
   </Modal>;
@@ -793,9 +794,9 @@ function RequestForm({open,onClose,onSuccess}){
     const msg=`Blood Request — Vizag Volunteers Digi Blood\n\nPatient: ${f.name}\nContact: ${f.phone}\nBlood Group: ${f.bg}\nUnits: ${f.units}\nHospital: ${f.hospital}\nArea: ${f.area}\nUrgency: ${urgLabel}${f.note?'\nNotes: '+f.note:''}\n\nKindly help connect us with a matching donor. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('requests',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,units:parseInt(f.units),hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:(f.note||'').slice(0,300)}).catch(()=>{});
-    dbToast('Request sent to our team. Your poster is ready to share. Tap Send in WhatsApp to alert volunteers.');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    
     close();
-    if(onSuccess)onSuccess({patient_name:f.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:(f.urgency||'').charAt(0).toUpperCase()+(f.urgency||'').slice(1),contact:f.phone});
+    dbDone({title:'Request sent to our team',msg:'We will try to connect you with a matching donor. Create a poster to share with friends and groups so more people can help.',wa:msg,poster:{patient_name:f.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:f.name,bg:f.bg,units:parseInt(f.units),hospital:f.hospital,area:f.area,phone:f.phone,urgency:(f.urgency||'').charAt(0).toUpperCase()+(f.urgency||'').slice(1),contact:f.phone}});
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
   const IR=useRef();IR.current=Inp;const InpS=useMemo(()=>(pp)=>IR.current(pp),[]);
@@ -810,7 +811,7 @@ function RequestForm({open,onClose,onSuccess}){
       <AreaPicker label="Hospital Area" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Urgency <span>*</span></label><select className="db-input" value={f.urgency} onChange={ch('urgency')}><option value="critical">Critical — Needed immediately</option><option value="urgent">Urgent — Within a few hours</option><option value="routine">Routine — Scheduled procedure</option></select></div>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.note} onChange={ch('note')} placeholder="Reason, special requirements…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Request</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Submitting opens WhatsApp with a pre-filled message to our coordinator who will match you with a donor.</div>
     </form>
   </Modal>;
@@ -842,7 +843,7 @@ function CampForm({open,onClose}){
     const msg=`Camp Organiser Request — Vizag Volunteers Digi Blood\n\nOrganiser: ${f.name}\nPhone: ${f.phone}${f.org?'\nOrganisation: '+f.org:''}${f.date?'\nPreferred Date: '+f.date:''}\nVenue: ${f.venue}\nArea: ${f.area}${f.count?'\nExpected Participants: '+f.count:''}${f.notes?'\nNotes: '+f.notes:''}\n\nPlease help us organise a blood donation camp. Thank you.`;
     const g=guard(ev);if(g==='consent')return;
     if(g==='ok')submitRecord('camps',{organizer:f.name.trim(),contact:f.name.trim()+' - '+f.phone.replace(/\D/g,''),org:f.org.trim(),date:f.date||'',venue:f.venue.trim()+', '+f.area.trim(),slots:parseInt(f.count)||0,note:(f.notes||'').slice(0,300),title:(f.org.trim()||f.name.trim())+' blood camp'}).catch(()=>{});
-    dbToast('Request received! Tap Send in WhatsApp and our team will contact you to plan the camp.');window.open('https://wa.me/917337335556?text='+encodeURIComponent(msg),'_blank');
+    dbDone({title:'Camp request received',msg:'Thank you for organising a camp. Our team will contact you on the number you gave to plan the date and logistics.',wa:msg});
     close();
   }
   function Inp({k,label,req,...rest}){return <div className="db-form-group"><label className="db-form-label">{label}{req&&<span> *</span>}</label><input className={`db-input${errs[k]?' err':''}`} value={f[k]} onChange={ch(k)} {...rest}/>{errs[k]&&<div className="db-form-err">{errs[k]}</div>}</div>;}
@@ -855,7 +856,7 @@ function CampForm({open,onClose}){
       <InpS k="venue" label="Proposed Venue" req placeholder="e.g. JNTU Auditorium, college, office…"/>
       <AreaPicker label="Area / Locality" req placeholder="Start typing the area" value={f.area} onChange={v=>setF(p=>({...p,area:v}))} error={errs.area} other={aOther} setOther={setAOther}/>
       <div className="db-form-group"><label className="db-form-label">Notes <span style={{fontWeight:400,textTransform:'none',letterSpacing:0}}>(optional)</span></label><textarea className="db-input" rows={2} value={f.notes} onChange={ch('notes')} placeholder="Any special requirements or questions…" style={{resize:'vertical'}}/></div>
-      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">send</span>Submit via WhatsApp</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">check_circle</span>Submit Camp Request</button><button type="button" className="db-btn db-btn-outline" onClick={close}>Cancel</button></div>
       <div className="db-form-note"><span className="material-symbols-outlined">info</span>Our team will contact you within 24 hours to finalise logistics, volunteers, and blood bank coordination.</div>
     </form>
   </Modal>;
@@ -1186,6 +1187,8 @@ function DigiBloodApp(){
   const[donorOpen,setDonorOpen]=useState(()=>location.hash==='#register');
   useEffect(()=>{const h=()=>{if(location.hash==='#register')setDonorOpen(true);};window.addEventListener('hashchange',h);return()=>window.removeEventListener('hashchange',h);},[]);
   const[reqOpen,setReqOpen]=useState(false);
+  const[done,setDone]=useState(null);
+  useEffect(()=>{const h=e=>setDone(e.detail);window.addEventListener('db-done',h);return()=>window.removeEventListener('db-done',h);},[]);
   const[posterData,setPosterData]=useState(null);
   useEffect(()=>{document.title=PAGE_TITLES[page]||'Digi Blood';},[page]);
   const openDonor=()=>setDonorOpen(true);
@@ -1210,6 +1213,14 @@ function DigiBloodApp(){
       <DonorForm open={donorOpen} onClose={()=>setDonorOpen(false)}/>
       <RequestForm open={reqOpen} onClose={()=>setReqOpen(false)} onSuccess={data=>{setReqOpen(false);setPosterData(data);}}/>
       <PosterModal req={posterData} onClose={()=>setPosterData(null)}/>
+      <Modal open={!!done} onClose={()=>setDone(null)} title={done?.title||''} sub="">
+        {done&&<div><div style={{display:'flex',gap:12,alignItems:'flex-start',marginBottom:16}}><span className="material-symbols-outlined" style={{color:'#2E9E5B',fontSize:36}}>check_circle</span><p style={{margin:0,fontSize:15,lineHeight:1.5}}>{done.msg}</p></div>
+        <div className="db-form-actions" style={{flexDirection:'column'}}>
+          {done.poster&&<button type="button" className="db-btn db-btn-primary" onClick={()=>{const p=done.poster;setDone(null);setPosterData(p);}}><span className="material-symbols-outlined">campaign</span>Create Poster</button>}
+          <button type="button" className={`db-btn ${done.poster?'db-btn-outline':'db-btn-primary'}`} onClick={()=>setDone(null)}>Done</button>
+          <a className="db-btn db-btn-outline" style={{justifyContent:'center'}} href={'https://wa.me/917337335556?text='+encodeURIComponent(done.wa)} target="_blank" rel="noopener"><span className="material-symbols-outlined">chat</span>Send a copy to the team on WhatsApp (optional)</a>
+        </div></div>}
+      </Modal>
       <Toasts list={toasts}/>
     </div>
   </DataProvider></BloodProvider>;
@@ -1220,4 +1231,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-   }
+}
