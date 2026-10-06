@@ -85,7 +85,7 @@ function parseAvailStr(html){
 }
 function parseBank(row,idx){
   const nameHtml=row[1]||'';
-  const div=document.createElement('div');div.innerHTML=nameHtml;
+  const div=document.createElement('div');div.innerHTML=nameHtml.replace(/<br\s*\/?>/gi,'\n');
   const lines=(div.textContent||'').split('\n').map(s=>s.trim()).filter(Boolean);
   const name=lines[0]||'Unknown';
   const phoneM=nameHtml.match(/Phone:\s*([\d\s,/+-]+?)(?:\s*,Fax|$)/);
@@ -1135,7 +1135,7 @@ function AboutPage(){
   </React.Fragment>;
 }
 function DigiBloodApp(){
-  const[page,setPage]=useState('home');
+  const[page,setPage]=useState(()=>{const h=location.hash.slice(1);return ['avail','req','donors','camps','about'].includes(h)?h:'home'});
   const[toasts,showToast]=useToast();
   const[donorOpen,setDonorOpen]=useState(false);
   const[reqOpen,setReqOpen]=useState(false);
