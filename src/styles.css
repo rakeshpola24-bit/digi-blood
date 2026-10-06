@@ -466,3 +466,9 @@ html,body{background:#F8F9FA;}
 .db-carousel-slide .db-cnt div[style*="flex-wrap"]{margin-top:26px;}
 .db-carousel-slide{min-height:0!important;}
 @media(max-width:768px){.db-tile-status{font-size:10px;padding:2px 5px;letter-spacing:0;}.db-tile-sub{display:none;}}
+.db-ac{position:absolute;left:0;right:0;top:100%;z-index:50;background:#fff;border:1px solid var(--db-gray-200,#dee2e6);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.15);max-height:260px;overflow:auto;margin-top:2px}
+.db-ac-item{display:flex;align-items:center;gap:8px;width:100%;text-align:left;background:none;border:0;border-bottom:1px solid #f1f3f5;padding:11px 12px;font:inherit;font-size:14px;color:#212529;cursor:pointer}
+.db-ac-item:hover,.db-ac-item:focus{background:#fff1f1}
+.db-ac-item .material-symbols-outlined{font-size:18px;color:#9aa0a6}
+.db-ac-item.other{color:#C0392B;font-weight:600;border-bottom:0}
+.db-ac-item.other .material-symbols-outlined{color:#C0392B}
