@@ -544,3 +544,6 @@ html,body{background:#F8F9FA;}
 .ff-more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--db-gray-700,#495057);}
 .ff-more[open] summary{margin-bottom:10px;}
 .ff-chip-s{font-size:14px!important;font-weight:600!important;}
+.ff-src{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
+.ff-src .ff-chip{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:15px;padding:12px 6px;}
+.ff-src .ff-chip .material-symbols-outlined{font-size:26px;}
