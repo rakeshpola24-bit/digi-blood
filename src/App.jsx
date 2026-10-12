@@ -219,10 +219,10 @@ function drawBloodPoster(canvas,req){
     ctx.fillStyle='#FFF';ctx.beginPath();ctx.roundRect?ctx.roundRect(40,cy,W-80,ch,22):ctx.rect(40,cy,W-80,ch);ctx.fill();
     ctx.strokeStyle='rgba(192,20,26,0.35)';ctx.lineWidth=2;ctx.stroke();
     function lbl(t,x,y,col){ctx.textAlign='left';ctx.fillStyle=col||GRAY;ctx.font='bold 20px Inter';try{ctx.letterSpacing='4px';}catch(e){}ctx.fillText(t.split('').join(''),x,y);try{ctx.letterSpacing='0px';}catch(e){}}
-    function field(l,val,x,y,maxW,size,col,lc){lbl(l,x,y,lc);ctx.fillStyle=col||INK;ctx.font='bold '+(size||40)+'px Oswald';ctx.textAlign='left';ctx.fillText(trunc(val,maxW),x,y+42);}
+    function field(l,val,x,y,maxW,size,col,lc){lbl(l,x,y,lc);ctx.fillStyle=col||INK;var fs=size||40;ctx.textAlign='left';ctx.font='bold '+fs+'px Oswald';while(fs>(size>40?25:22)&&ctx.measureText(val).width>maxW){fs-=2;ctx.font='bold '+fs+'px Oswald';}ctx.fillText(trunc(val,maxW),x,y+42);}
     var hosp=[req.hospital,req.area].filter(Boolean);
     var hv=hosp.length==2&&hosp[0].toLowerCase()===hosp[1].toLowerCase()?hosp[0]:hosp.join(', ');
-    field('PATIENT',req.patient_name||req.name||'-',72,cy+36,300,34);
+    field('PATIENT',req.patient_name||req.name||'-',72,cy+36,370,34);
     field('UNITS',(req.units||1)+(parseInt(req.units)===1?' UNIT':' UNITS'),460,cy+36,200,34);
     field('URGENCY',req.urgency||'Urgent',700,cy+36,300,34,RED);
     ctx.strokeStyle='rgba(192,20,26,0.2)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(72,cy+98);ctx.lineTo(W-72,cy+98);ctx.stroke();
