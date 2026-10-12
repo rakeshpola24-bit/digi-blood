@@ -28,6 +28,16 @@ service cloud.firestore {
       allow create: if str(request.resource.data.phone, 15) && request.resource.data.keys().hasOnly(['phone','createdAt']);
       allow read, update, delete: if staff();
     }
+    // Donor said "I can donate": anyone can add one, only staff can read or manage.
+    match /helpReplies/{id} {
+      allow create: if request.resource.data.status == 'new'
+        && str(request.resource.data.donorName, 60) && str(request.resource.data.reqPhone, 15)
+        && str(request.resource.data.reqBg, 4) && str(request.resource.data.donorBg, 4)
+        && str(request.resource.data.hospital, 120)
+        && (request.resource.data.donorPhone is string && request.resource.data.donorPhone.size() <= 15)
+        && request.resource.data.keys().hasOnly(['donorName','donorPhone','donorBg','reqPhone','reqBg','hospital','status','createdAt']);
+      allow read, update, delete: if staff();
+    }
     match /camps/{id} {
       allow read: if resource.data.status == 'approved' || staff();
       allow create: if request.resource.data.status == 'pending'
