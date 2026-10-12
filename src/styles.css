@@ -524,3 +524,8 @@ html,body{background:#F8F9FA;}
 .fc-cell .g{font-family:var(--db-font-head);font-weight:700;font-size:18px}.fc-cell .n{font-weight:800;font-size:20px;display:flex;justify-content:center;align-items:center;gap:2px}.fc-cell .n .material-symbols-outlined{font-size:18px;color:var(--db-gray-500)}
 .fc-cell .p{font-size:11px;color:var(--db-gray-700)}.fc-cell.low .p{color:var(--db-secondary-dark);font-weight:700}
 .fc-exp{background:var(--db-primary-soft);border-radius:10px;padding:12px;font-size:14px;}
+@media(max-width:768px){
+  .db-subnav-inner > div:first-child{padding:0!important;overflow:visible!important;}
+  .db-subnav-btn{flex:1 1 0;min-width:0;flex-direction:column;gap:2px;padding:9px 1px 8px;font-size:9.5px;letter-spacing:0;justify-content:center;}
+  .db-subnav-btn .material-symbols-outlined{font-size:20px;}
+}
