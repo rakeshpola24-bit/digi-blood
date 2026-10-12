@@ -124,4 +124,4 @@ export default function Admin(){
     <div style={{display:'flex',gap:8,margin:'14px 0',flexWrap:'wrap'}}>{TABS.map(([k,l])=><button key={k} style={btn(tab===k?'#E62E32':'#E9ECEF',tab===k?'#fff':'#212529')} onClick={()=>setTab(k)}>{l}</button>)}</div>
     <List key={tab} kind={tab}/>
   </div>;
-}
+      }
