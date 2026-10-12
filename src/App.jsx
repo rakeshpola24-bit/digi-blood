@@ -983,6 +983,7 @@ function FindFlow({open,onClose,onPoster}){
         {custom&&<button type="button" className="db-btn db-btn-outline db-btn-sm" onClick={()=>setCustom('')}>Use original</button>}
       </div>
       </details>
+      <a className="ff-help" href="tel:+917337335557"><span className="material-symbols-outlined">call</span><span>Need help? Call the Vizag Volunteers helpline <b>73373 35557</b></span></a>
       <div className="db-form-actions" style={{flexWrap:'wrap'}}><button type="button" className="db-btn db-btn-outline" onClick={copy}><span className="material-symbols-outlined">{copied?'check':'content_copy'}</span>{copied?'Copied':'Copy message'}</button>
         <button type="button" className="db-btn db-btn-outline" onClick={()=>{const r=req;close();onPoster({patient_name:r.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:r.name,bg:r.bg,units:r.units,hospital:r.hospital,area:r.area,phone:r.phone,urgency:(r.urgency||'').charAt(0).toUpperCase()+(r.urgency||'').slice(1),compl:r.comp&&r.comp!=='whole'?compLabel(r.comp):'',comp:r.comp,contact:r.phone});}}><span className="material-symbols-outlined">campaign</span>Share poster</button>
         <button type="button" className="db-btn db-btn-outline" onClick={close}>Close</button></div>
@@ -1136,4 +1137,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-              }
+                                                                                                                                                                                                      }
