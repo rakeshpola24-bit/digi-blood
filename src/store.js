@@ -5,7 +5,8 @@ import { firebaseConfig } from './firebase-config.js';
 
 export const LIVE = !!firebaseConfig.apiKey;
 let db = null, auth = null;
-if (LIVE) { const app = initializeApp(firebaseConfig); db = getFirestore(app); auth = getAuth(app); }
+export let fbApp = null;
+if (LIVE) { const app = initializeApp(firebaseConfig); fbApp = app; db = getFirestore(app); auth = getAuth(app); }
 
 const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 function ago(ts) {
@@ -59,6 +60,12 @@ export async function submitRecord(kind, data) {
     return;
   }
   await addDoc(collection(db, kind), { ...data, status: 'pending', createdAt: serverTimestamp() });
+}
+
+// Donor said "I can donate": log it for staff (needs the helpReplies rule; fails quietly until it is published).
+export async function logReply(data) {
+  if (!LIVE || localStorage.getItem('db_dry') === '1') return false;
+  try { await addDoc(collection(db, 'helpReplies'), { ...data, status: 'new', createdAt: serverTimestamp() }); return true; } catch (e) { return false; }
 }
 
 // ---- staff / admin ----
