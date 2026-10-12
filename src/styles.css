@@ -540,3 +540,7 @@ html,body{background:#F8F9FA;}
 .ff-comp{display:flex;flex-wrap:wrap;gap:8px;}
 .ff-comp .ff-chip{padding:10px 14px;font-size:15px;flex:0 0 auto;}
 .ff-opt-big{font-size:14px;color:#9B1C1C;background:#FDECEC;border-radius:10px;padding:10px 12px;}
+.ff-more{margin:6px 0 12px;border:1px solid var(--db-gray-200);border-radius:10px;padding:10px 12px;background:#fff;}
+.ff-more summary{cursor:pointer;font-weight:600;font-size:14px;color:var(--db-gray-700,#495057);}
+.ff-more[open] summary{margin-bottom:10px;}
+.ff-chip-s{font-size:14px!important;font-weight:600!important;}
