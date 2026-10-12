@@ -175,7 +175,8 @@ function drawBloodPoster(canvas,req){
   const W=1080,H=1080;
   canvas.width=W;canvas.height=H;
   function loadImg(src){return new Promise(function(res){var i=new Image();i.crossOrigin='anonymous';i.onload=function(){res(i);};i.onerror=function(){res(null);};i.src=src;});}
-  return loadImg(import.meta.env.BASE_URL+"vv-logo.svg").then(function(vvImg){
+  function qrImg(){return import('qrcode').then(function(Q){var m=Q.default||Q;return m.toDataURL(helpLink({name:req.patient_name||req.name,age:'',gender:'',units:req.units||1,bg:req.bg,hospital:req.hospital,area:req.area,phone:req.phone||req.contact,urgency:String(req.urgency||'urgent').toLowerCase()}),{errorCorrectionLevel:'L',margin:1,width:300});}).then(loadImg).catch(function(){return null;});}
+  return Promise.all([loadImg(import.meta.env.BASE_URL+"vv-logo.svg"),qrImg()]).then(function(imgs){var vvImg=imgs[0],qrI=imgs[1];
     var ctx=canvas.getContext('2d');
     var RED='#C0141A',DARK='#8B0000',INK='#1A1A1A',GRAY='#8A8A8A';
     function trunc(text,maxW){text=String(text||'');if(ctx.measureText(text).width<=maxW)return text;while(text.length>0&&ctx.measureText(text+'\u2026').width>maxW)text=text.slice(0,-1);return text+'\u2026';}
@@ -196,36 +197,50 @@ function drawBloodPoster(canvas,req){
     ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.fillText(tag,W-40-tw/2,100);
     // title
     ctx.fillStyle=INK;ctx.font='bold 150px Oswald';ctx.fillText('BLOOD REQUEST',W/2,300);
-    // blood drop with group
-    var cx=W/2,top=325,bot=635;
-    var g=ctx.createLinearGradient(0,top,0,bot);g.addColorStop(0,'#E0242B');g.addColorStop(1,DARK);
-    ctx.fillStyle=g;ctx.beginPath();
-    ctx.moveTo(cx,top);ctx.bezierCurveTo(cx+30,top+80,cx+165,top+160,cx+165,top+225);
-    ctx.bezierCurveTo(cx+165,top+285,cx+90,bot,cx,bot);
-    ctx.bezierCurveTo(cx-90,bot,cx-165,top+285,cx-165,top+225);
-    ctx.bezierCurveTo(cx-165,top+160,cx-30,top+80,cx,top);ctx.fill();
-    ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.font='bold 120px Oswald';ctx.fillText(req.bg||'Any',cx,top+225);
-    ctx.font='bold 26px Oswald';ctx.fillText('BLOOD NEEDED',cx,top+262);
+    // blood drop with group (vibrant ruby gradient + soft glow)
+    var cx=W/2,top=318,bot=598;
+    function dropPath(){ctx.beginPath();ctx.moveTo(cx,top);ctx.bezierCurveTo(cx+28,top+72,cx+155,top+145,cx+155,top+205);
+    ctx.bezierCurveTo(cx+155,top+258,cx+85,bot,cx,bot);ctx.bezierCurveTo(cx-85,bot,cx-155,top+258,cx-155,top+205);
+    ctx.bezierCurveTo(cx-155,top+145,cx-28,top+72,cx,top);}
+    var g=ctx.createLinearGradient(0,top,0,bot);g.addColorStop(0,'#D32F2F');g.addColorStop(1,'#B71C1C');
+    ctx.save();ctx.shadowColor='rgba(211,47,47,0.55)';ctx.shadowBlur=45;ctx.fillStyle=g;dropPath();ctx.fill();ctx.restore();
+    ctx.lineWidth=6;ctx.strokeStyle='#FFFFFF';dropPath();ctx.stroke();
+    ctx.lineWidth=2;ctx.strokeStyle='rgba(183,28,28,0.5)';dropPath();ctx.stroke();
+    ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.save();ctx.shadowColor='rgba(0,0,0,0.25)';ctx.shadowBlur=8;ctx.font='bold 130px Oswald';ctx.fillText(req.bg||'Any',cx,top+215);ctx.restore();
+    ctx.font='bold 26px Oswald';ctx.fillText('BLOOD NEEDED',cx,top+252);
+    // left: why donate
+    ctx.textAlign='center';ctx.fillStyle=RED;ctx.font='bold 120px Oswald';ctx.fillText('3',150,455);
+    ctx.fillStyle=INK;ctx.font='bold 30px Oswald';ctx.fillText('LIVES SAVED',150,495);ctx.fillText('BY 1 DONATION',150,530);
+    // right: real QR to the donor page
+    if(qrI){ctx.fillStyle='#FFF';ctx.beginPath();ctx.roundRect?ctx.roundRect(830,350,200,200,16):ctx.rect(830,350,200,200);ctx.fill();ctx.strokeStyle='rgba(192,20,26,0.35)';ctx.lineWidth=2;ctx.stroke();ctx.drawImage(qrI,840,360,180,180);
+      ctx.fillStyle=RED;ctx.font='bold 22px Inter';ctx.fillText('SCAN TO HELP',930,580);}
     // details card
-    var cy=655,ch=215;
+    var cy=622,ch=190;
     ctx.fillStyle='#FFF';ctx.beginPath();ctx.roundRect?ctx.roundRect(40,cy,W-80,ch,22):ctx.rect(40,cy,W-80,ch);ctx.fill();
     ctx.strokeStyle='rgba(192,20,26,0.35)';ctx.lineWidth=2;ctx.stroke();
-    function field(lbl,val,x,y,maxW,size){ctx.textAlign='left';ctx.fillStyle=GRAY;ctx.font='22px Inter';ctx.fillText(lbl,x,y);ctx.fillStyle=INK;ctx.font='bold '+(size||40)+'px Oswald';ctx.fillText(trunc(val,maxW),x,y+44);}
+    function lbl(t,x,y,col){ctx.textAlign='left';ctx.fillStyle=col||GRAY;ctx.font='bold 20px Inter';try{ctx.letterSpacing='4px';}catch(e){}ctx.fillText(t.split('').join(''),x,y);try{ctx.letterSpacing='0px';}catch(e){}}
+    function field(l,val,x,y,maxW,size,col,lc){lbl(l,x,y,lc);ctx.fillStyle=col||INK;ctx.font='bold '+(size||40)+'px Oswald';ctx.textAlign='left';ctx.fillText(trunc(val,maxW),x,y+42);}
     var hosp=[req.hospital,req.area].filter(Boolean);
     var hv=hosp.length==2&&hosp[0].toLowerCase()===hosp[1].toLowerCase()?hosp[0]:hosp.join(', ');
-    field('PATIENT',req.patient_name||req.name||'-',72,cy+42,300);
-    field('UNITS',(req.units||1)+(parseInt(req.units)===1?' Unit':' Units'),420,cy+42,200);
-    field('URGENCY',req.urgency||'Urgent',660,cy+42,340);
-    ctx.strokeStyle='rgba(192,20,26,0.18)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(72,cy+112);ctx.lineTo(W-72,cy+112);ctx.stroke();
-    field('HOSPITAL',hv,72,cy+142,540,36);
-    field('CONTACT',req.phone||req.contact||'-',660,cy+142,340,36);
-    // request id + slogan
-    ctx.textAlign='center';ctx.fillStyle=RED;ctx.font='24px Inter';ctx.fillText('REQUEST ID',W/2,905);
-    ctx.fillStyle=INK;ctx.font='bold 44px Oswald';ctx.fillText(trunc(req.request_no||'VVDBR00000000',700),W/2,950);
+    field('PATIENT',req.patient_name||req.name||'-',72,cy+36,300,34);
+    field('UNITS',(req.units||1)+(parseInt(req.units)===1?' UNIT':' UNITS'),460,cy+36,200,34);
+    field('URGENCY',req.urgency||'Urgent',700,cy+36,300,34,RED);
+    ctx.strokeStyle='rgba(192,20,26,0.2)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(72,cy+98);ctx.lineTo(W-72,cy+98);ctx.stroke();
+    ctx.font='bold 46px Oswald';
+    field('HOSPITAL',hv,72,cy+128,W-144,46,INK,RED);
+    // contact call-to-action capsule
+    var py=828,ph=106;
+    ctx.save();ctx.shadowColor='rgba(183,28,28,0.35)';ctx.shadowBlur=18;ctx.shadowOffsetY=6;
+    var pg=ctx.createLinearGradient(0,py,0,py+ph);pg.addColorStop(0,'#D32F2F');pg.addColorStop(1,'#B71C1C');
+    ctx.fillStyle=pg;ctx.beginPath();ctx.roundRect?ctx.roundRect(40,py,W-80,ph,48):ctx.rect(40,py,W-80,ph);ctx.fill();ctx.restore();
+    ctx.fillStyle='#FFE9A8';ctx.textAlign='center';ctx.font='bold 22px Inter';try{ctx.letterSpacing='4px';}catch(e){}ctx.fillText('CALL / WHATSAPP NOW',W/2,py+34);try{ctx.letterSpacing='0px';}catch(e){}
+    ctx.fillStyle='#FFF';ctx.font='bold 56px Oswald';try{ctx.letterSpacing='3px';}catch(e){}ctx.fillText(trunc(req.phone||req.contact||'-',W-200),W/2,py+90);try{ctx.letterSpacing='0px';}catch(e){}
+    // request id
+    ctx.fillStyle=GRAY;ctx.font='bold 22px Inter';ctx.textAlign='center';ctx.fillText('REQUEST ID  '+(req.request_no||'VVDBR00000000'),W/2,962);
     // footer
     ctx.fillStyle=DARK;ctx.fillRect(0,975,W,105);
     ctx.fillStyle='#FFF';ctx.font='italic bold 32px Georgia';ctx.fillText('Your blood today can bring back a tomorrow.',W/2,1022);
-    ctx.fillStyle='#FFDDDD';ctx.font='22px Inter';ctx.fillText('www.vizagvolunteers.org',W/2,1058);
+    ctx.fillStyle='#FFDDDD';ctx.font='22px Inter';ctx.fillText('Safe & quick  \u2022  Every drop counts  \u2022  www.vizagvolunteers.org',W/2,1058);
   });
 }
 
@@ -1084,4 +1099,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-  }
+    }
