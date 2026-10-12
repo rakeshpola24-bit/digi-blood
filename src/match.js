@@ -1,16 +1,18 @@
 // Shared helpers: blood compatibility, request links/messages, donor ranking (used by the app and #admin).
 export const CAN_RECEIVE_FROM={'A+':['A+','A-','O+','O-'],'A-':['A-','O-'],'B+':['B+','B-','O+','O-'],'B-':['B-','O-'],'AB+':['A+','A-','B+','B-','AB+','AB-','O+','O-'],'AB-':['A-','B-','AB-','O-'],'O+':['O+','O-'],'O-':['O-']};
 export const clean=s=>String(s||'').replace(/[~\n\r]/g,' ').trim();
-export function helpLink(r){return location.origin+location.pathname+'#help='+encodeURIComponent([r.name,r.age||'',r.gender||'',r.units,r.bg,r.hospital,r.area,r.phone,r.urgency].map(clean).join('~'));}
+export function helpLink(r){return location.origin+location.pathname+'#help='+encodeURIComponent([r.name,r.age||'',r.gender||'',r.units,r.bg,r.hospital,r.area,r.phone,r.urgency,r.comp&&r.comp!=='whole'?r.comp:''].map(clean).join('~'));}
 export function parseHelp(hash){
   try{const p=decodeURIComponent(hash.slice(6)).split('~');if(p.length<9)return null;
-    const[name,age,gender,units,bg,hospital,area,phone,urgency]=p;if(!CAN_RECEIVE_FROM[bg]||!/^\d{10}$/.test(phone))return null;
-    return{name,age,gender,units,bg,hospital,area,phone,urgency};}catch(e){return null;}
+    const[name,age,gender,units,bg,hospital,area,phone,urgency,comp]=p;if(!CAN_RECEIVE_FROM[bg]||!/^\d{10}$/.test(phone))return null;
+    return{name,age,gender,units,bg,hospital,area,phone,urgency,comp:COMP[comp]?comp:'whole'};}catch(e){return null;}
 }
+export const COMP={whole:'Whole blood',sdp:'Platelets (SDP)',rdp:'Platelets (RDP)',plasma:'Plasma',prbc:'Packed red cells'};
+export const compLabel=k=>COMP[k]||COMP.whole;
 export const URG_TEXT={critical:'CRITICAL - needed immediately',urgent:'Urgent - within a few hours',routine:'Routine - scheduled'};
 export function patientLine(r){return [r.name,r.age?r.age+' yrs':'',r.gender].filter(Boolean).join(', ');}
 export function helpMessage(r){
-  return `🩸 Blood needed - ${r.bg}\n\nPatient: ${patientLine(r)}\nUnits: ${r.units}\nHospital: ${r.hospital}, ${r.area}\nUrgency: ${URG_TEXT[r.urgency]||''}\nWho can give: ${CAN_RECEIVE_FROM[r.bg].join(', ')}\n\nIf you can donate (and have not donated in the last 3 months), tap here to check and reply:\n${helpLink(r)}\n\nPlease forward to a friend who may help. - Vizag Volunteers Digi Blood`;
+  return `🩸 ${r.comp&&r.comp!=='whole'?compLabel(r.comp)+' needed':'Blood needed'} - ${r.bg}\n\nPatient: ${patientLine(r)}\nUnits: ${r.units}\nHospital: ${r.hospital}, ${r.area}\nUrgency: ${URG_TEXT[r.urgency]||''}\nWho can give: ${CAN_RECEIVE_FROM[r.bg].join(', ')}\n\nIf you can donate (and have not donated in the last 3 months), tap here to check and reply:\n${helpLink(r)}\n\nPlease forward to a friend who may help. - Vizag Volunteers Digi Blood`;
 }
 // Donors recorded as donated in the last 3 months are skipped.
 export const RECENT='lt3';
