@@ -530,3 +530,10 @@ html,body{background:#F8F9FA;}
   .db-subnav-btn .material-symbols-outlined{font-size:20px;}
 }
 .ca-act{display:block;margin-top:10px;background:var(--db-secondary,#E62E32);color:#fff;border:0;border-radius:999px;padding:10px 16px;font-weight:700;font-size:14px;cursor:pointer;font-family:inherit;}
+.ff-done{display:flex;gap:12px;align-items:flex-start;background:#E7F6EC;border:1.5px solid #8FD3A5;border-radius:14px;padding:14px;margin-bottom:12px;color:#14532D;}
+.ff-done .material-symbols-outlined{font-size:30px;color:#1E9E4A;flex-shrink:0;}
+.ff-done b{display:block;font-size:16px;margin-bottom:2px;}
+.ff-done span:not(.material-symbols-outlined){font-size:14px;line-height:1.45;}
+.ff-done.ff-warn{background:#FFF6DD;border-color:#F0D27A;color:#6B4E00;}
+.ff-done.ff-warn .material-symbols-outlined{color:#C48A00;}
+.ff-opt{font-size:13px;font-weight:600;color:var(--db-gray-700,#495057);margin:4px 0 8px;}
