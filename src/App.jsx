@@ -990,27 +990,28 @@ function HelpView({r,goHome}){
   </div></div>;
 }
 /* ── Assistant chatbot (Gemini free tier) ── */
-function Assistant(){
-  const{banks}=useContext(BloodCtx);
+const ACT_LBL={request:'Request Blood',donor:'Register as Donor',availability:'See blood availability',requests:'See active requests',camps:'See donation camps'};
+function Assistant({onAction}){
+  const{banks}=useContext(BloodCtx);const DCa=useContext(DataCtx);
   const[open,setOpen]=useState(false);const[msgs,setMsgs]=useState([]);const[txt,setTxt]=useState('');const[busy,setBusy]=useState(false);const end=useRef(null);
-  const stock=useMemo(()=>BLOOD_GROUPS.map(g=>g+': '+banks.reduce((s,b)=>s+(b.stock[g]||0),0)+' total ('+banks.filter(b=>b.stock[g]>0).sort((a,b)=>b.stock[g]-a.stock[g]).slice(0,3).map(b=>b.name.split(/[ ,]/).slice(0,4).join(' ')+' '+b.stock[g]).join(', ')+')').join('; '),[banks]);
+  const stock=useMemo(()=>BLOOD_GROUPS.map(g=>g+': '+banks.reduce((s,b)=>s+(b.stock[g]||0),0)+' total ('+banks.filter(b=>b.stock[g]>0).sort((a,b)=>b.stock[g]-a.stock[g]).slice(0,3).map(b=>b.name.split(/[ ,]/).slice(0,4).join(' ')+' '+b.stock[g]+(b.phone?' tel '+b.phone:'')).join(', ')+')').join('; '),[banks]);
   async function send(t){
     t=(t||'').trim();if(!t||busy)return;
     const next=[...msgs,{role:'me',text:t.slice(0,500)}];setMsgs(next);setTxt('');setBusy(true);
-    try{const a=await chatReply(next.slice(-8),stock);setMsgs(m=>[...m,{role:'bot',text:String(a).replace(/\*\*/g,'').trim()}]);}
-    catch(e){setMsgs(m=>[...m,{role:'bot',text:friendly(e)+' For blood, please call a blood bank from the Availability tab.',err:1}]);}
+    try{const dn=(DCa&&DCa.donors)||[],rq=((DCa&&DCa.requests)||[]).filter(r=>r.status!=='fulfilled'&&r.status!=='closed');const bgc={};dn.forEach(d=>{bgc[d.bg]=(bgc[d.bg]||0)+1;});const live='Registered donors: '+(dn.length?Object.entries(bgc).map(([k,v])=>k+' '+v).join(', '):'none yet')+'. Open requests: '+(rq.length?rq.slice(0,6).map(r=>r.bg+' x'+r.units+' at '+r.hospital+' ('+r.area+', '+r.urgency+')').join('; '):'none right now')+'. Upcoming camps: '+((DCa&&DCa.camps)||[]).filter(c=>c.status!=='past').slice(0,3).map(c=>c.title+' '+c.day+' '+c.mon+' at '+c.venue).join('; ')+'.';const a=await chatReply(next.slice(-8),stock,live);const raw=String(a).replace(/\*\*/g,'').trim();const tg=(raw.match(/\[\[(request|donor|availability|requests|camps)\]\]/)||[])[1];setMsgs(m=>[...m,{role:'bot',text:raw.replace(/\[\[[a-z]+\]\]/g,'').trim(),act:tg}]);}
+    catch(e){setMsgs(m=>[...m,{role:'bot',text:(/Too many/.test(e&&e.message)?e.message:'Sorry, I could not answer just now. Please try again in a minute.')+' Meanwhile you can see live stock and call banks right here.',err:1,act:'availability'}]);}
     setBusy(false);
   }
   useEffect(()=>{const h=e=>{setOpen(true);if(e.detail&&e.detail.q)setTimeout(()=>send(e.detail.q),50);};window.addEventListener('db-chat',h);return()=>window.removeEventListener('db-chat',h);});
   useEffect(()=>{if(end.current)end.current.scrollIntoView({block:'end'});},[msgs,busy,open]);
-  const chips=['Can I donate blood?','How do I request blood?','Where is O- blood?','Who can I get blood from for B+?'];
+  const chips=['My father needs B+ blood urgently','I want to donate blood','Where is O- blood now?','Can I donate? I am 45 and 60 kg'];
   return <React.Fragment>
     {!open&&<button type="button" className="ca-fab" onClick={()=>setOpen(true)} aria-label="Ask the Digi Blood assistant"><span className="material-symbols-outlined">smart_toy</span><span className="ca-fab-t">Ask AI</span></button>}
     {open&&<div className="ca-panel">
       <div className="ca-hd"><div><b>Digi Blood assistant</b><small>Free AI helper. Not a doctor.</small></div><button type="button" onClick={()=>setOpen(false)} aria-label="Close"><span className="material-symbols-outlined">close</span></button></div>
       <div className="ca-body">
         {msgs.length===0&&<div className="ca-msg bot">Hi! I can help with donating, requesting blood, or finding stock. Ask in English, Telugu or Hindi.<div className="ca-chips">{chips.map(c=><button type="button" key={c} onClick={()=>send(c)}>{c}</button>)}</div></div>}
-        {msgs.map((m,i)=><div key={i} className={'ca-msg '+(m.role==='me'?'me':'bot')}>{m.text}</div>)}
+        {msgs.map((m,i)=><div key={i} className={'ca-msg '+(m.role==='me'?'me':'bot')}>{m.text}{m.act&&<button type="button" className="ca-act" onClick={()=>{setOpen(false);onAction&&onAction(m.act);}}>{ACT_LBL[m.act]}</button>}</div>)}
         {busy&&<div className="ca-msg bot">Typing...</div>}
         <div ref={end}/>
       </div>
@@ -1088,7 +1089,7 @@ function DigiBloodApp(){
       <FindFlow open={reqOpen} onClose={()=>setReqOpen(false)} onPoster={setPosterData}/>
       <PosterModal req={posterData} onClose={()=>setPosterData(null)}/>
       <ThankYou done={done} onClose={()=>setDone(null)} onPoster={p=>{setDone(null);setPosterData(p);}} goAvail={()=>{setDone(null);setPage('avail');window.scrollTo({top:0});}}/>
-      <Assistant/>
+      <Assistant onAction={k=>{if(k==='request')openReq();else if(k==='donor')openDonor();else{setPage(k==='availability'?'avail':k);window.scrollTo({top:0});}}}/>
       <Toasts list={toasts}/>
     </div>
   </DataProvider></BloodProvider>;
@@ -1099,4 +1100,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-    }
+          }
