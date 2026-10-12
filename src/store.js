@@ -59,7 +59,14 @@ export async function submitRecord(kind, data) {
     await setDoc(doc(db, 'donorContacts', ref.id), { phone, createdAt: serverTimestamp() });
     return;
   }
-  await addDoc(collection(db, kind), { ...data, status: 'pending', createdAt: serverTimestamp() });
+  const r = await addDoc(collection(db, kind), { ...data, status: 'pending', createdAt: serverTimestamp() });
+  return r.id;
+}
+
+// Status of one request the visitor sent (needs a get rule on requests; fails quietly until it is published).
+export async function getMyRequest(id) {
+  if (!LIVE || !id) return null;
+  try { const d = await getDoc(doc(db, 'requests', id)); return d.exists() ? d.data().status || 'pending' : null; } catch (e) { return null; }
 }
 
 // Donor said "I can donate": log it for staff (needs the helpReplies rule; fails quietly until it is published).
