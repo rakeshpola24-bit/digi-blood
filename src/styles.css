@@ -537,3 +537,6 @@ html,body{background:#F8F9FA;}
 .ff-done.ff-warn{background:#FFF6DD;border-color:#F0D27A;color:#6B4E00;}
 .ff-done.ff-warn .material-symbols-outlined{color:#C48A00;}
 .ff-opt{font-size:13px;font-weight:600;color:var(--db-gray-700,#495057);margin:4px 0 8px;}
+.ff-comp{display:flex;flex-wrap:wrap;gap:8px;}
+.ff-comp .ff-chip{padding:10px 14px;font-size:15px;flex:0 0 auto;}
+.ff-opt-big{font-size:14px;color:#9B1C1C;background:#FDECEC;border-radius:10px;padding:10px 12px;}
