@@ -547,3 +547,5 @@ html,body{background:#F8F9FA;}
 .ff-src{display:grid;grid-template-columns:1fr 1fr;gap:8px;}
 .ff-src .ff-chip{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:15px;padding:12px 6px;}
 .ff-src .ff-chip .material-symbols-outlined{font-size:26px;}
+.ff-help{display:flex;align-items:center;gap:10px;margin:4px 0 12px;padding:12px;border-radius:12px;background:#F4F6F8;color:var(--db-black);text-decoration:none;font-size:14px;}
+.ff-help .material-symbols-outlined{color:var(--db-secondary);font-size:24px;}
