@@ -175,467 +175,57 @@ function drawBloodPoster(canvas,req){
   const W=1080,H=1080;
   canvas.width=W;canvas.height=H;
   function loadImg(src){return new Promise(function(res){var i=new Image();i.crossOrigin='anonymous';i.onload=function(){res(i);};i.onerror=function(){res(null);};i.src=src;});}
-  function removeWhiteBg(img){var oc=document.createElement('canvas');oc.width=img.naturalWidth;oc.height=img.naturalHeight;var ox=oc.getContext('2d');ox.drawImage(img,0,0);var d=ox.getImageData(0,0,oc.width,oc.height);var px=d.data;for(var i=0;i<px.length;i+=4){var r=px[i],g=px[i+1],b=px[i+2];if(r>210&&g>210&&b>210){px[i+3]=0;}}ox.putImageData(d,0,0);return oc;}
-  return Promise.all([
-    loadImg(import.meta.env.BASE_URL+"vv-logo.svg")
-  ]).then(function(imgs){
-    var vvImg = imgs[0];
-    var ctx = canvas.getContext('2d');
-    var W = 1080, H = 1080;
-
-    // ── Helpers ────────────────────────────────────────────────────
-    function rrect(x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x+r, y);
-      ctx.lineTo(x+w-r, y);
-      ctx.quadraticCurveTo(x+w, y, x+w, y+r);
-      ctx.lineTo(x+w, y+h-r);
-      ctx.quadraticCurveTo(x+w, y+h, x+w-r, y+h);
-      ctx.lineTo(x+r, y+h);
-      ctx.quadraticCurveTo(x, y+h, x, y+h-r);
-      ctx.lineTo(x, y+r);
-      ctx.quadraticCurveTo(x, y, x+r, y);
-      ctx.closePath();
-    }
-
-    function trunc(text, maxW) {
-      if (!text) return '';
-      text = String(text);
-      if (ctx.measureText(text).width <= maxW) return text;
-      while (text.length > 0 && ctx.measureText(text + '\u2026').width > maxW) text = text.slice(0, -1);
-      return text + '\u2026';
-    }
-
-    function line(x1, y1, x2, y2) {
-      ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
-    }
-
-    // ── Background ────────────────────────────────────────────────
-    var bg = ctx.createLinearGradient(0, 0, W, H);
-    bg.addColorStop(0, '#FDF8F0');
-    bg.addColorStop(1, '#F5E8D8');
-    ctx.fillStyle = bg;
-    ctx.fillRect(0, 0, W, H);
-
-    // Faint ECG watermark (right side background)
-    ctx.save();
-    ctx.strokeStyle = 'rgba(192,20,26,0.07)';
-    ctx.lineWidth = 3.5;
-    ctx.beginPath();
-    var ex = 560, ey = 330;
-    ctx.moveTo(ex, ey); ctx.lineTo(ex+70, ey);
-    ctx.lineTo(ex+92, ey-75); ctx.lineTo(ex+118, ey+95);
-    ctx.lineTo(ex+142, ey-48); ctx.lineTo(ex+162, ey);
-    ctx.lineTo(ex+310, ey);
-    ctx.stroke();
-    // Faint heart shapes
-    ctx.font = '90px Arial';
-    ctx.fillStyle = 'rgba(192,20,26,0.05)';
-    ctx.textAlign = 'center';
-    ctx.fillText('\u2665', 980, 305);
-    ctx.font = '45px Arial';
-    ctx.fillText('\u2665', 850, 190);
-    ctx.restore();
-
-    // ── HEADER (y 0–182) ─────────────────────────────────────────
-    // VV Logo circle
-    if (vvImg) {
-      ctx.save();
-      ctx.beginPath(); ctx.arc(92, 92, 78, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(vvImg, 14, 14, 156, 156);
-      ctx.restore();
-    }
-
-    // Taglines
-    ctx.textAlign = 'left';
-    ctx.fillStyle = '#1A1A1A';
-    ctx.font = 'bold 36px Oswald';
-    ctx.fillText("SOMEONE\u2019S LIFE", 188, 60);
-    ctx.font = 'bold 50px Oswald';
-    ctx.fillText('IS IN YOUR HANDS  \u2661', 188, 110);
-    ctx.fillStyle = '#C0141A';
-    ctx.font = 'bold 32px Oswald';
-    ctx.fillText('BE A HERO.  DONATE BLOOD.', 188, 150);
-
-    // EMERGENCY badge (top right)
-    rrect(762, 18, 298, 74, 14);
-    ctx.fillStyle = '#C0141A'; ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 16px Inter'; ctx.textAlign = 'center';
-    ctx.fillText('\uD83D\uDEA8', 798, 64); // alarm emoji via surrogate pair → just use text
-    ctx.font = 'bold 40px Oswald';
-    ctx.fillText('EMERGENCY', 930, 65);
-
-    // ECG divider
-    ctx.strokeStyle = '#C0141A'; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.moveTo(18, 173); ctx.lineTo(395, 173); ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(395, 173); ctx.lineTo(414, 173);
-    ctx.lineTo(424, 148); ctx.lineTo(440, 198);
-    ctx.lineTo(453, 153); ctx.lineTo(464, 173);
-    ctx.lineTo(488, 173);
-    ctx.stroke();
-    ctx.fillStyle = '#C0141A'; ctx.font = '28px Arial'; ctx.textAlign = 'center';
-    ctx.fillText('\u2665', 508, 182);
-    ctx.textAlign = 'left';
-
-    // ── LEFT: BLOOD REQUEST heading ──────────────────────────────
-    ctx.fillStyle = '#1A1A1A';
-    ctx.font = 'bold 162px Oswald';
-    ctx.fillText('BLOOD', 16, 362);
-    ctx.fillText('REQUEST', 16, 502);
-
-    // Red brush banner
-    ctx.save();
-    ctx.fillStyle = '#8B0000';
-    ctx.beginPath();
-    ctx.moveTo(16, 512); ctx.lineTo(546, 508);
-    ctx.lineTo(544, 566); ctx.lineTo(14, 570);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FFFFFF';
-    ctx.font = 'bold 26px Oswald'; ctx.textAlign = 'center';
-    ctx.fillText('A SMALL ACT FOR YOU, A LIFELINE FOR SOMEONE.  \u2661', 280, 546);
-    ctx.restore();
-
-    // ── INFO CARDS ───────────────────────────────────────────────
-    var CX = 16, CW = 530;
-
-    function infoCard(y, h, iconFn, label, value, extra) {
-      rrect(CX, y, CW, h, 13);
-      ctx.fillStyle = '#FFFFFF'; ctx.fill();
-      ctx.strokeStyle = 'rgba(192,20,26,0.2)'; ctx.lineWidth = 1.5; ctx.stroke();
-
-      // Icon circle
-      ctx.beginPath(); ctx.arc(CX + 50, y + h / 2, 29, 0, Math.PI * 2);
-      ctx.fillStyle = '#C0141A'; ctx.fill();
-      iconFn(CX + 50, y + h / 2);
-
-      var valX = CX + 94, valMaxW = extra ? CW - 210 : CW - 110;
-
-      ctx.fillStyle = '#999999'; ctx.font = '19px Inter'; ctx.textAlign = 'left';
-      ctx.fillText(label, valX, y + h / 2 - 13);
-      ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 33px Oswald';
-      ctx.fillText(trunc(value, valMaxW), valX, y + h / 2 + 23);
-
-      if (extra) {
-        // Vertical divider
-        ctx.strokeStyle = 'rgba(192,20,26,0.2)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(CX + CW - 155, y + 10); ctx.lineTo(CX + CW - 155, y + h - 10); ctx.stroke();
-        ctx.fillStyle = '#999'; ctx.font = '19px Inter'; ctx.textAlign = 'left';
-        ctx.fillText(extra.lbl, CX + CW - 143, y + h / 2 - 13);
-        ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 27px Oswald';
-        ctx.fillText(String(extra.val), CX + CW - 143, y + h / 2 + 21);
-      }
-
-      // Dashed bottom divider
-      ctx.save();
-      ctx.setLineDash([5, 4]);
-      ctx.strokeStyle = 'rgba(192,20,26,0.18)'; ctx.lineWidth = 1;
-      ctx.beginPath();
-      ctx.moveTo(CX + 86, y + h - 1); ctx.lineTo(CX + CW - 10, y + h - 1);
-      ctx.stroke();
-      ctx.restore();
-    }
-
-    function icoPatient(cx, cy) {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.beginPath(); ctx.arc(cx, cy - 9, 9, 0, Math.PI * 2); ctx.fill();
-      ctx.beginPath(); ctx.arc(cx, cy + 8, 14, Math.PI, 2 * Math.PI); ctx.fill();
-    }
-
-    function icoHeart(cx, cy) {
-      ctx.save();
-      ctx.fillStyle = '#FFFFFF'; ctx.font = '26px Arial'; ctx.textAlign = 'center';
-      ctx.fillText('\u2665', cx, cy + 9);
-      ctx.restore();
-    }
-
-    function icoHospital(cx, cy) {
-      ctx.fillStyle = '#FFFFFF';
-      ctx.fillRect(cx - 11, cy - 14, 22, 22);
-      ctx.fillStyle = '#C0141A';
-      ctx.fillRect(cx - 3, cy - 12, 6, 18);
-      ctx.fillRect(cx - 9, cy - 6, 18, 6);
-    }
-
-    var unitStr = req.units ? (req.units + ' Unit' + (req.units > 1 ? 's' : '')) : '';
-    infoCard(582, 86, icoPatient, 'PATIENT NAME', req.patient_name || 'N/A',
-      unitStr ? { lbl: 'UNITS', val: unitStr } : null);
-    infoCard(676, 82, icoHeart, 'URGENCY / REASON', req.urgency || 'N/A', null);
-    infoCard(766, 82, icoHospital, 'HOSPITAL',
-      (req.hospital || '') + (req.area ? ', ' + req.area : ''), null);
-
-    // ── BRANDING BAR ─────────────────────────────────────────────
-    var bY = 858;
-    rrect(CX, bY, CW, 78, 10);
-    ctx.fillStyle = '#FFFFFF'; ctx.fill();
-    ctx.strokeStyle = 'rgba(192,20,26,0.15)'; ctx.lineWidth = 1.5; ctx.stroke();
-
-    if (vvImg) {
-      ctx.save();
-      ctx.beginPath(); ctx.arc(54, bY + 39, 30, 0, Math.PI * 2); ctx.clip();
-      ctx.drawImage(vvImg, 24, bY + 9, 60, 60);
-      ctx.restore();
-    }
-    ctx.fillStyle = '#AAAAAA'; ctx.font = '14px Inter'; ctx.textAlign = 'left';
-    ctx.fillText('An initiative by', 96, bY + 22);
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 24px Oswald';
-    ctx.fillText('VIZAG VOLUNTEERS', 96, bY + 46);
-    ctx.fillStyle = '#999'; ctx.font = '14px Inter';
-    ctx.fillText('Feel Good, Do Good', 96, bY + 64);
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.12)'; ctx.lineWidth = 1;
-    line(308, bY + 10, 308, bY + 68);
-
-    ctx.fillStyle = '#AAAAAA'; ctx.font = '14px Inter'; ctx.textAlign = 'left';
-    ctx.fillText('Powered by', 322, bY + 24);
-    // Digi drop icon
-    ctx.save();
-    ctx.fillStyle = '#C0141A';
-    ctx.beginPath();
-    ctx.moveTo(332, bY + 53); ctx.bezierCurveTo(332, bY + 44, 322, bY + 40, 322, bY + 54);
-    ctx.bezierCurveTo(322, bY + 63, 332, bY + 67, 342, bY + 63);
-    ctx.bezierCurveTo(352, bY + 59, 352, bY + 47, 342, bY + 47);
-    ctx.closePath(); ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 28px Oswald'; ctx.textAlign = 'left';
-    ctx.fillText('DigiBlood', 358, bY + 66);
-
-    // ── CONTACT BAR ──────────────────────────────────────────────
-    var ctY = 946;
-    rrect(CX, ctY, CW, 86, 10);
-    ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fill();
-    ctx.strokeStyle = 'rgba(192,20,26,0.18)'; ctx.lineWidth = 1.5; ctx.stroke();
-
-    // Location pin
-    ctx.fillStyle = '#C0141A';
-    ctx.beginPath(); ctx.arc(47, ctY + 38, 12, Math.PI, 2 * Math.PI); ctx.fill();
-    ctx.beginPath(); ctx.moveTo(35, ctY + 38); ctx.lineTo(47, ctY + 56); ctx.lineTo(59, ctY + 38); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FDF8F0';
-    ctx.beginPath(); ctx.arc(47, ctY + 38, 5, 0, Math.PI * 2); ctx.fill();
-
-    ctx.fillStyle = '#999'; ctx.font = '16px Inter'; ctx.textAlign = 'left';
-    ctx.fillText('HOSPITAL', 74, ctY + 27);
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 23px Oswald';
-    ctx.fillText(trunc(req.hospital || '', 128), 74, ctY + 50);
-    ctx.fillStyle = '#888'; ctx.font = '14px Inter';
-    ctx.fillText(req.area || '', 74, ctY + 70);
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
-    line(220, ctY + 10, 220, ctY + 76);
-
-    // Phone icon (simple)
-    rrect(231, ctY + 24, 20, 34, 4);
-    ctx.fillStyle = '#C0141A'; ctx.fill();
-    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(234, ctY + 28, 14, 20);
-    ctx.fillStyle = '#C0141A';
-    ctx.beginPath(); ctx.arc(241, ctY + 51, 2, 0, Math.PI * 2); ctx.fill();
-
-    ctx.fillStyle = '#999'; ctx.font = '16px Inter'; ctx.textAlign = 'left';
-    ctx.fillText('CONTACT', 264, ctY + 27);
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 26px Oswald';
-    ctx.fillText(trunc(req.phone || req.contact || 'N/A', 150), 264, ctY + 53);
-    ctx.fillStyle = '#888'; ctx.font = '14px Inter';
-    ctx.fillText('CALL / WHATSAPP', 264, ctY + 72);
-
-    ctx.strokeStyle = 'rgba(0,0,0,0.1)'; ctx.lineWidth = 1;
-    line(430, ctY + 10, 430, ctY + 76);
-
-    // Blood drop icon right cell
-    ctx.fillStyle = '#C0141A';
-    ctx.beginPath();
-    ctx.moveTo(452, ctY + 24); ctx.bezierCurveTo(452, ctY + 16, 442, ctY + 12, 442, ctY + 28);
-    ctx.bezierCurveTo(442, ctY + 38, 452, ctY + 42, 462, ctY + 38);
-    ctx.bezierCurveTo(472, ctY + 34, 472, ctY + 22, 462, ctY + 22);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 16px Oswald'; ctx.textAlign = 'left';
-    ctx.fillText('DONATE BLOOD.', 444, ctY + 56);
-    ctx.fillText('SAVE LIVES.', 444, ctY + 74);
-
-    // ── RIGHT: "Every drop counts" text ──────────────────────────
-    ctx.fillStyle = '#666'; ctx.font = 'italic 23px Georgia'; ctx.textAlign = 'right';
-    ctx.fillText('Every drop', 1066, 210);
-    ctx.fillText('counts.', 1066, 238);
-    ctx.fillText('Every', 1066, 266);
-    ctx.fillStyle = '#C0141A'; ctx.font = 'italic bold 23px Georgia';
-    ctx.fillText('donor', 1066, 294);
-    ctx.fillStyle = '#666'; ctx.font = 'italic 23px Georgia';
-    ctx.fillText('is a hero.', 1066, 322);
-    ctx.fillStyle = '#C0141A'; ctx.font = '26px Arial'; ctx.textAlign = 'right';
-    ctx.fillText('\u2661', 1066, 352);
-
-    // ── BLOOD DROP ───────────────────────────────────────────────
-    var dCX = 805, dCY = 435, dR = 188;
-
-    ctx.save();
-    ctx.shadowColor = 'rgba(80,0,0,0.45)';
-    ctx.shadowBlur = 42;
-    ctx.shadowOffsetX = 14;
-    ctx.shadowOffsetY = 20;
-    var dG = ctx.createRadialGradient(dCX - 72, dCY - 72, 12, dCX, dCY, dR);
-    dG.addColorStop(0, '#FF5555');
-    dG.addColorStop(0.3, '#CC1111');
-    dG.addColorStop(0.7, '#960808');
-    dG.addColorStop(1, '#680000');
-    ctx.fillStyle = dG;
-    ctx.beginPath();
-    ctx.moveTo(dCX, dCY - dR);
-    ctx.bezierCurveTo(dCX + dR * 0.56, dCY - dR * 0.24, dCX + dR * 0.96, dCY + dR * 0.32, dCX, dCY + dR);
-    ctx.bezierCurveTo(dCX - dR * 0.96, dCY + dR * 0.32, dCX - dR * 0.56, dCY - dR * 0.24, dCX, dCY - dR);
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Highlight
-    var hlG = ctx.createRadialGradient(dCX - 82, dCY - 95, 6, dCX - 56, dCY - 68, 88);
-    hlG.addColorStop(0, 'rgba(255,255,255,0.48)');
-    hlG.addColorStop(1, 'rgba(255,255,255,0)');
-    ctx.fillStyle = hlG;
-    ctx.beginPath();
-    ctx.moveTo(dCX, dCY - dR);
-    ctx.bezierCurveTo(dCX + dR * 0.56, dCY - dR * 0.24, dCX + dR * 0.96, dCY + dR * 0.32, dCX, dCY + dR);
-    ctx.bezierCurveTo(dCX - dR * 0.96, dCY + dR * 0.32, dCX - dR * 0.56, dCY - dR * 0.24, dCX, dCY - dR);
-    ctx.closePath();
-    ctx.fill();
-
-    // Decorative dashes around drop
-    ctx.strokeStyle = '#C0141A'; ctx.lineWidth = 3.5;
-    [[-168, -148, 0.62], [-198, -55, 0.62], [168, -148, 0.62], [198, -55, 0.62]].forEach(function (d) {
-      ctx.beginPath();
-      ctx.moveTo(dCX + d[0], dCY + d[1]);
-      ctx.lineTo(dCX + d[0] * d[2], dCY + d[1] * d[2]);
-      ctx.stroke();
-    });
-
-    // Blood group text
-    ctx.save();
-    ctx.shadowColor = 'rgba(0,0,0,0.3)'; ctx.shadowBlur = 8;
-    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 118px Oswald'; ctx.textAlign = 'center';
-    ctx.fillText(req.blood_group || 'O+', dCX, dCY + 28);
-    ctx.shadowBlur = 0;
-    ctx.font = 'bold 35px Oswald';
-    ctx.fillText('BLOOD GROUP', dCX, dCY + 74);
-    ctx.font = 'bold 42px Oswald';
-    ctx.fillText('NEEDED', dCX, dCY + 118);
-    ctx.restore();
-
-    // ── "Your blood today…" brush banner ─────────────────────────
-    var bbY = 644;
-    ctx.save();
-    ctx.fillStyle = '#8B0000';
-    ctx.beginPath();
-    ctx.moveTo(558, bbY); ctx.lineTo(1066, bbY - 6);
-    ctx.lineTo(1064, bbY + 58); ctx.lineTo(556, bbY + 64);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FFFFFF'; ctx.font = 'italic bold 26px Georgia'; ctx.textAlign = 'center';
-    ctx.fillText('Your blood today', 812, bbY + 22);
-    ctx.fillText('can bring back a tomorrow.  \u2661', 812, bbY + 50);
-    ctx.restore();
-
-    // ── REQUEST ID BOX ───────────────────────────────────────────
-    var rBY = 722;
-    rrect(558, rBY, 502, 94, 14);
-    ctx.fillStyle = '#FFFFFF'; ctx.fill();
-    ctx.strokeStyle = '#C0141A'; ctx.lineWidth = 2.5; ctx.stroke();
-    ctx.fillStyle = '#C0141A'; ctx.font = 'bold 21px Inter'; ctx.textAlign = 'center';
-    ctx.fillText('REQUEST ID', 809, rBY + 27);
-    ctx.strokeStyle = '#C0141A'; ctx.lineWidth = 1;
-    line(585, rBY + 35, 1033, rBY + 35);
-    ctx.fillStyle = '#1A1A1A'; ctx.font = 'bold 44px Oswald';
-    ctx.fillText(trunc(req.request_no || 'VVDBR00000000', 470), 809, rBY + 82);
-
-    // ── QUOTE (right side) ───────────────────────────────────────
-    ctx.fillStyle = '#C0141A'; ctx.font = 'bold 54px Georgia'; ctx.textAlign = 'left';
-    ctx.fillText('\u201C', 1016, 840);
-    ctx.fillStyle = '#555'; ctx.font = '21px Inter'; ctx.textAlign = 'right';
-    ctx.fillText('One donation', 1068, 852);
-    ctx.fillText('can save up to 3 lives.', 1068, 877);
-    ctx.fillStyle = '#C0141A'; ctx.font = 'bold 21px Inter';
-    ctx.fillText('DONATE BLOOD.', 1068, 902);
-    ctx.fillText('SAVE LIVES.', 1068, 927);
-    ctx.fillStyle = '#555'; ctx.font = '20px Inter';
-    ctx.fillText('Be the reason', 1068, 952);
-    ctx.fillText('someone lives.', 1068, 975);
-    ctx.fillStyle = '#C0141A'; ctx.font = 'bold 54px Georgia'; ctx.textAlign = 'right';
-    ctx.fillText('\u201D', 1070, 988);
-
-    // ── QR PLACEHOLDER ───────────────────────────────────────────
-    var qX = 558, qY = 826, qS = 86;
-    rrect(qX, qY, qS, qS, 7);
-    ctx.fillStyle = '#FFFFFF'; ctx.fill();
-    ctx.strokeStyle = '#C0141A'; ctx.lineWidth = 1.5; ctx.stroke();
-    // QR finder squares
-    ctx.fillStyle = '#1A1A1A';
-    var qs = 9;
-    [[0,0],[1,0],[2,0],[0,1],[2,1],[0,2],[1,2],[2,2],
-     [5,0],[6,0],[7,0],[5,1],[7,1],[5,2],[6,2],[7,2],
-     [0,5],[1,5],[2,5],[0,6],[2,6],[0,7],[1,7],[2,7],
-     [3,3],[4,3],[5,3],[3,4],[5,4],[3,5],[4,6],[5,5],[6,4]
-    ].forEach(function(p) {
-      ctx.fillRect(qX + 5 + p[0] * qs, qY + 5 + p[1] * qs, qs - 1, qs - 1);
-    });
-    ctx.fillStyle = '#888'; ctx.font = 'bold 11px Inter'; ctx.textAlign = 'center';
-    ctx.fillText('SCAN TO SHARE', qX + qS / 2, qY + qS + 14);
-
-    // ── FOOTER ───────────────────────────────────────────────────
-    var ftY = 972;
-
-    // Dark red main footer bar
-    ctx.fillStyle = '#8B0000';
-    ctx.fillRect(0, ftY, W, 72);
-
-    // Left: community icon + text
-    ctx.fillStyle = '#FFFFFF';
-    // Simple people icon
-    ctx.beginPath(); ctx.arc(28, ftY + 22, 9, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(46, ftY + 22, 9, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(18, ftY + 22, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(56, ftY + 22, 7, 0, Math.PI * 2); ctx.fill();
-    ctx.beginPath(); ctx.arc(37, ftY + 22, 11, Math.PI, 2 * Math.PI); ctx.fill();
-    ctx.beginPath(); ctx.arc(18, ftY + 22, 9, Math.PI, 2 * Math.PI); ctx.fill();
-    ctx.beginPath(); ctx.arc(56, ftY + 22, 9, Math.PI, 2 * Math.PI); ctx.fill();
-    ctx.font = 'bold 17px Oswald'; ctx.textAlign = 'left';
-    ctx.fillText('TOGETHER,', 70, ftY + 24);
-    ctx.fillText('WE CAN CREATE MIRACLES.', 70, ftY + 44);
-
-    // Center: thank you
-    ctx.fillStyle = '#FFDDDD'; ctx.font = 'italic 22px Georgia'; ctx.textAlign = 'center';
-    ctx.fillText('Thank you for your kindness.  \u2661', W / 2, ftY + 36);
-
-    // Right: website + social icons
-    ctx.fillStyle = '#FFFFFF'; ctx.font = '16px Inter'; ctx.textAlign = 'right';
-    ctx.fillText('www.vizagvolunteers.org', W - 18, ftY + 22);
-    // Social circles
-    var socY = ftY + 52, socR = 12;
-    [[W - 60, 'f'], [W - 38, 'ig'], [W - 16, 'wa']].forEach(function(s) {
-      ctx.beginPath(); ctx.arc(s[0], socY, socR, 0, Math.PI * 2);
-      ctx.fillStyle = 'rgba(255,255,255,0.25)'; ctx.fill();
-      ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 11px Inter'; ctx.textAlign = 'center';
-      ctx.fillText(s[1], s[0], socY + 4);
-    });
-
-    // Sub-ticker strip
-    ctx.fillStyle = '#C0141A';
-    ctx.fillRect(0, ftY + 72, W, 36);
-    // Blood drop icon ticker
-    ctx.fillStyle = '#FEC73E';
-    ctx.beginPath();
-    ctx.moveTo(14, ftY + 82); ctx.bezierCurveTo(14, ftY + 74, 6, ftY + 70, 6, ftY + 84);
-    ctx.bezierCurveTo(6, ftY + 94, 14, ftY + 97, 22, ftY + 93);
-    ctx.bezierCurveTo(30, ftY + 89, 30, ftY + 78, 22, ftY + 78);
-    ctx.closePath(); ctx.fill();
-    ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 16px Oswald'; ctx.textAlign = 'left';
-    ctx.fillText('ONE DONATION CAN SAVE UP TO 3 LIVES.', 36, ftY + 96);
-    ctx.strokeStyle = 'rgba(255,255,255,0.4)'; ctx.lineWidth = 1;
-    line(480, ftY + 76, 480, ftY + 102);
-    ctx.fillText('DONATE BLOOD. SPREAD HOPE. SAVE LIVES.', 495, ftY + 96);
-    // Trailing drop
-    ctx.fillStyle = '#FEC73E';
-    ctx.beginPath();
-    ctx.moveTo(W - 14, ftY + 82); ctx.bezierCurveTo(W - 14, ftY + 74, W - 22, ftY + 70, W - 22, ftY + 84);
-    ctx.bezierCurveTo(W - 22, ftY + 94, W - 14, ftY + 97, W - 6, ftY + 93);
-    ctx.bezierCurveTo(W + 2, ftY + 89, W + 2, ftY + 78, W - 6, ftY + 78);
-    ctx.closePath(); ctx.fill();
+  return loadImg(import.meta.env.BASE_URL+"vv-logo.svg").then(function(vvImg){
+    var ctx=canvas.getContext('2d');
+    var RED='#C0141A',DARK='#8B0000',INK='#1A1A1A',GRAY='#8A8A8A';
+    function trunc(text,maxW){text=String(text||'');if(ctx.measureText(text).width<=maxW)return text;while(text.length>0&&ctx.measureText(text+'\u2026').width>maxW)text=text.slice(0,-1);return text+'\u2026';}
+    // background
+    var bg=ctx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#FFFAF3');bg.addColorStop(1,'#F6E9DA');
+    ctx.fillStyle=bg;ctx.fillRect(0,0,W,H);
+    // top bar
+    ctx.fillStyle=DARK;ctx.fillRect(0,0,W,12);
+    // header: logo + name
+    if(vvImg){ctx.save();ctx.beginPath();ctx.arc(90,90,62,0,Math.PI*2);ctx.clip();ctx.drawImage(vvImg,28,28,124,124);ctx.restore();}
+    ctx.textAlign='left';ctx.fillStyle=INK;ctx.font='bold 40px Oswald';ctx.fillText('VIZAG VOLUNTEERS',172,86);
+    ctx.fillStyle=GRAY;ctx.font='22px Inter';ctx.fillText('Powered by DigiBlood',172,120);
+    // emergency pill
+    var urg=String(req.urgency||'').toLowerCase();
+    var tag=(urg==='urgent'||urg==='critical'||urg==='emergency'||!urg)?'EMERGENCY':'BLOOD NEEDED';
+    ctx.font='bold 34px Oswald';var tw=ctx.measureText(tag).width+56;
+    ctx.fillStyle=RED;ctx.beginPath();ctx.roundRect?ctx.roundRect(W-40-tw,52,tw,70,35):ctx.rect(W-40-tw,52,tw,70);ctx.fill();
+    ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.fillText(tag,W-40-tw/2,100);
+    // title
+    ctx.fillStyle=INK;ctx.font='bold 150px Oswald';ctx.fillText('BLOOD REQUEST',W/2,300);
+    // blood drop with group
+    var cx=W/2,top=325,bot=635;
+    var g=ctx.createLinearGradient(0,top,0,bot);g.addColorStop(0,'#E0242B');g.addColorStop(1,DARK);
+    ctx.fillStyle=g;ctx.beginPath();
+    ctx.moveTo(cx,top);ctx.bezierCurveTo(cx+30,top+80,cx+165,top+160,cx+165,top+225);
+    ctx.bezierCurveTo(cx+165,top+285,cx+90,bot,cx,bot);
+    ctx.bezierCurveTo(cx-90,bot,cx-165,top+285,cx-165,top+225);
+    ctx.bezierCurveTo(cx-165,top+160,cx-30,top+80,cx,top);ctx.fill();
+    ctx.fillStyle='#FFF';ctx.textAlign='center';ctx.font='bold 120px Oswald';ctx.fillText(req.bg||'Any',cx,top+225);
+    ctx.font='bold 26px Oswald';ctx.fillText('BLOOD NEEDED',cx,top+262);
+    // details card
+    var cy=655,ch=215;
+    ctx.fillStyle='#FFF';ctx.beginPath();ctx.roundRect?ctx.roundRect(40,cy,W-80,ch,22):ctx.rect(40,cy,W-80,ch);ctx.fill();
+    ctx.strokeStyle='rgba(192,20,26,0.35)';ctx.lineWidth=2;ctx.stroke();
+    function field(lbl,val,x,y,maxW,size){ctx.textAlign='left';ctx.fillStyle=GRAY;ctx.font='22px Inter';ctx.fillText(lbl,x,y);ctx.fillStyle=INK;ctx.font='bold '+(size||40)+'px Oswald';ctx.fillText(trunc(val,maxW),x,y+44);}
+    var hosp=[req.hospital,req.area].filter(Boolean);
+    var hv=hosp.length==2&&hosp[0].toLowerCase()===hosp[1].toLowerCase()?hosp[0]:hosp.join(', ');
+    field('PATIENT',req.patient_name||req.name||'-',72,cy+42,300);
+    field('UNITS',(req.units||1)+(parseInt(req.units)===1?' Unit':' Units'),420,cy+42,200);
+    field('URGENCY',req.urgency||'Urgent',660,cy+42,340);
+    ctx.strokeStyle='rgba(192,20,26,0.18)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(72,cy+112);ctx.lineTo(W-72,cy+112);ctx.stroke();
+    field('HOSPITAL',hv,72,cy+142,540,36);
+    field('CONTACT',req.phone||req.contact||'-',660,cy+142,340,36);
+    // request id + slogan
+    ctx.textAlign='center';ctx.fillStyle=RED;ctx.font='24px Inter';ctx.fillText('REQUEST ID',W/2,905);
+    ctx.fillStyle=INK;ctx.font='bold 44px Oswald';ctx.fillText(trunc(req.request_no||'VVDBR00000000',700),W/2,950);
+    // footer
+    ctx.fillStyle=DARK;ctx.fillRect(0,975,W,105);
+    ctx.fillStyle='#FFF';ctx.font='italic bold 32px Georgia';ctx.fillText('Your blood today can bring back a tomorrow.',W/2,1022);
+    ctx.fillStyle='#FFDDDD';ctx.font='22px Inter';ctx.fillText('www.vizagvolunteers.org',W/2,1058);
   });
 }
 
@@ -1493,4 +1083,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-      }
+    }
