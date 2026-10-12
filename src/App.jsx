@@ -1,8 +1,10 @@
 import React,{useState,useEffect,useContext,createContext,useCallback,useRef,useMemo} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
-import {LIVE,watch,guard,submitRecord} from './store.js';
+import {LIVE,watch,guard,submitRecord,logReply} from './store.js';
 import Admin from './Admin.jsx';
+import {CAN_RECEIVE_FROM,helpLink,parseHelp,helpMessage,URG_TEXT} from './match.js';
+import {parseRequest,rewriteMessage,chatReply,gen,friendly,shrinkImage,PH} from './ai.js';
 
 
 const BLOOD_GROUPS=['A+','A-','B+','B-','AB+','AB-','O+','O-'];
@@ -1091,6 +1093,7 @@ function AvailPage(){
       </div>
     </div></div>
     <div className="db-pw"><div className="db-cnt">
+    <Forecast/>
     <div className="db-filter-bar">
       <label>Blood Group</label>
       <select value={fG} onChange={e=>setFG(e.target.value)}><option>All</option>{TABLE_GROUPS.map(bg=><option key={bg}>{bg}</option>)}</select>
@@ -1223,25 +1226,15 @@ function AboutPage(){
   </React.Fragment>;
 }
 /* ── Donor request: find blood, then ask donors on WhatsApp ── */
-const CAN_RECEIVE_FROM={'A+':['A+','A-','O+','O-'],'A-':['A-','O-'],'B+':['B+','B-','O+','O-'],'B-':['B-','O-'],'AB+':['A+','A-','B+','B-','AB+','AB-','O+','O-'],'AB-':['A-','B-','AB-','O-'],'O+':['O+','O-'],'O-':['O-']};
-const clean=s=>String(s||'').replace(/[~\n\r]/g,' ').trim();
-function helpLink(r){return location.origin+location.pathname+'#help='+encodeURIComponent([r.name,r.age,r.gender,r.units,r.bg,r.hospital,r.area,r.phone,r.urgency].map(clean).join('~'));}
-function parseHelp(hash){
-  try{const p=decodeURIComponent(hash.slice(6)).split('~');if(p.length<9)return null;
-    const[name,age,gender,units,bg,hospital,area,phone,urgency]=p;if(!CAN_RECEIVE_FROM[bg]||!/^\d{10}$/.test(phone))return null;
-    return{name,age,gender,units,bg,hospital,area,phone,urgency};}catch(e){return null;}
-}
-function helpMessage(r){
-  const urg={critical:'CRITICAL - needed immediately',urgent:'Urgent - within a few hours',routine:'Routine - scheduled'}[r.urgency]||'';
-  return `🩸 Blood needed - ${r.bg}\n\nPatient: ${r.name}, ${r.age} yrs, ${r.gender}\nUnits: ${r.units}\nHospital: ${r.hospital}, ${r.area}\nUrgency: ${urg}\nWho can give: ${CAN_RECEIVE_FROM[r.bg].join(', ')}\n\nIf you can donate (and have not donated in the last 3 months), tap here to check and reply:\n${helpLink(r)}\n\nPlease forward to a friend who may help. - Vizag Volunteers Digi Blood`;
-}
 function FindFlow({open,onClose,onPoster}){
   const{banks,loading}=useContext(BloodCtx);
   const INIT={bg:'',units:'1',area:'',name:'',age:'',gender:'',hospital:'',phone:'',urgency:'urgent'};
   const[f,setF]=useState(INIT);const[step,setStep]=useState(1);const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);const[busy,setBusy]=useState(false);const[copied,setCopied]=useState(false);
   const donorsAll=useContext(DataCtx).donors;
+  const[paste,setPaste]=useState('');const[imgName,setImgName]=useState('');const imgRef=useRef(null);const[reading,setReading]=useState(false);const[readMsg,setReadMsg]=useState('');const[mode,setMode]=useState('');const[captured,setCaptured]=useState('');
+  const[wording,setWording]=useState(false);const[custom,setCustom]=useState('');
   function set(k,v){setF(p=>({...p,[k]:v}));}
-  function close(){setStep(1);setF(INIT);setErrs({});setAOther(false);setCopied(false);onClose();}
+  function close(){setStep(1);setF(INIT);setErrs({});setAOther(false);setCopied(false);setPaste('');setImgName('');setReadMsg('');setMode('');setCaptured('');setCustom('');onClose();}
   const areaWords=(f.area||'').toLowerCase().split(/[\s,()]+/).filter(w=>w.length>3);
   const list=banks.filter(b=>b.stock[f.bg]>0).map(b=>({...b,near:areaWords.some(w=>(b.area+' '+b.name).toLowerCase().includes(w))}))
     .sort((a,b)=>(b.near-a.near)||(b.stock[f.bg]-a.stock[f.bg])).slice(0,5);
@@ -1249,6 +1242,24 @@ function FindFlow({open,onClose,onPoster}){
   const enough=list.some(b=>b.stock[f.bg]>=units);
   const compat=f.bg?CAN_RECEIVE_FROM[f.bg]:[];
   const donorCount=donorsAll.filter(d=>compat.includes(d.bg)&&d.last!=='Under 3 months ago').length;
+
+  async function readIt(){
+    const file=imgRef.current&&imgRef.current.files[0];
+    if(!paste.trim()&&!file){setReadMsg('Paste the message or choose a photo first.');return;}
+    setReading(true);setReadMsg('Reading... this can take up to 30 seconds.');
+    try{
+      const b64=file?await shrinkImage(file):null;
+      const r=await parseRequest({text:paste.trim(),imageB64:b64});
+      if(!r)throw new Error('empty');
+      const up=(r.bg||'').toUpperCase().replace(/POSITIVE|PLUS|POS/g,'+').replace(/NEGATIVE|MINUS|NEG/g,'-').replace(/\s/g,'').replace(/VE$/,'');
+      const ra=(r.area||'').toLowerCase().trim();const area=!ra?'':(VIZAG_AREAS.find(a=>a.toLowerCase()===ra)||VIZAG_AREAS.find(a=>ra.includes(a.toLowerCase()))||VIZAG_AREAS.find(a=>a.toLowerCase().startsWith(ra))||'');
+      const ph=String(r.phone||'').replace(/\D/g,'').slice(-10);
+      const g=/^m/i.test(r.gender||'')?'Male':/^f/i.test(r.gender||'')?'Female':/\S/.test(r.gender||'')?'Other':'';
+      setF(p=>({...p,bg:BLOOD_GROUPS.includes(up)?up:p.bg,units:String(Math.min(10,Math.max(1,parseInt(r.units)||parseInt(p.units)||1))),area:area||p.area,name:r.patientName||p.name,age:r.age?String(r.age):p.age,gender:g||p.gender,hospital:r.hospital||p.hospital,phone:ph.length===10?ph:p.phone,urgency:['critical','urgent','routine'].includes(r.urgency)?r.urgency:p.urgency}));
+      setCaptured((file?'photo':'pasted message'));setReadMsg('');setMode('');
+    }catch(e){setReadMsg(friendly(e));}
+    setReading(false);
+  }
   function next1(){const e={};if(!f.bg)e.bg='Choose the blood group';{const m=areaErr(f.area,aOther);if(m)e.area=m;}setErrs(e);if(!Object.keys(e).length)setStep(2);}
   async function next3(ev){
     ev.preventDefault();const e={};
@@ -1265,10 +1276,33 @@ function FindFlow({open,onClose,onPoster}){
   }
   const req={...f,units,phone:f.phone.replace(/\D/g,'')};
   const msg=step===4?helpMessage(req):'';
-  function copy(){try{navigator.clipboard.writeText(msg);}catch(e){}setCopied(true);setTimeout(()=>setCopied(false),2500);}
+  async function improve(lang){
+    setWording(true);
+    try{
+      const t=await rewriteMessage({bg:req.bg,units:req.units,urgency:req.urgency,groups:compat,lang});
+      const out=t.split('[PATIENT]').join(req.name).split('[AGE]').join(req.age).split('[GENDER]').join(req.gender).split('[HOSPITAL]').join(req.hospital).split('[AREA]').join(req.area).split('[LINK]').join(helpLink(req));
+      setCustom(out);
+    }catch(e){dbToast(friendly(e).replace('fill the details by hand','use the standard message'),'err');}
+    setWording(false);
+  }
+  function copy(){try{navigator.clipboard.writeText(custom||msg);}catch(e){}setCopied(true);setTimeout(()=>setCopied(false),2500);}
   const titles={1:'Find Blood',2:'Blood banks for '+f.bg,3:'Ask donors for help',4:'Send to donors'};
   return <Modal open={open} onClose={close} title={titles[step]} sub={step===1?'Tell us what is needed. We will check blood banks first.':step===2?'Live stock from eRaktKosh. Call the bank before you go.':step===3?'A few details for the message':'Step 4 of 4'}>
     {step===1&&<div>
+      <div className="ff-ai">
+        {!mode&&<button type="button" className="ff-ai-btn" onClick={()=>setMode('open')}><span className="material-symbols-outlined">auto_awesome</span><span><b>Have a message or a photo of the slip?</b><small>Paste it or upload it - AI fills the form for you</small></span></button>}
+        {mode&&<div>
+          <textarea className="db-input" rows={4} placeholder="Paste the WhatsApp message here (English, Telugu or Hindi)" value={paste} onChange={e=>setPaste(e.target.value)} style={{resize:'vertical',marginBottom:8}}/>
+          <div style={{display:'flex',gap:8,alignItems:'center',flexWrap:'wrap'}}>
+            <label className="db-btn db-btn-outline db-btn-sm" style={{cursor:'pointer'}}><span className="material-symbols-outlined">photo_camera</span>{imgName||'Add photo'}<input ref={imgRef} type="file" accept="image/*" style={{display:'none'}} onChange={e=>setImgName(e.target.files[0]?'Photo added':'')}/></label>
+            <button type="button" className="db-btn db-btn-primary db-btn-sm" disabled={reading} onClick={readIt}><span className="material-symbols-outlined">auto_awesome</span>{reading?'Reading...':'Read it'}</button>
+            <button type="button" className="db-btn db-btn-outline db-btn-sm" onClick={()=>{setMode('');setReadMsg('');}}>Cancel</button>
+          </div>
+          {readMsg&&<div style={{fontSize:13,marginTop:8,color:'var(--db-gray-700)'}}>{readMsg}</div>}
+          <div style={{fontSize:11,color:'var(--db-gray-500)',marginTop:8}}>The text or photo is sent to Google Gemini (free) to read it, and is not saved by us. Please check what it filled in. Prefer not to share? Just type below.</div>
+        </div>}
+        {captured&&<div className="ff-ok"><span className="material-symbols-outlined">check_circle</span><div>Read from your {captured}. Please check the details below{f.name?' and on the next screens':''}. Nothing is sent until you confirm.</div></div>}
+      </div>
       <div className="db-form-group"><label className="db-form-label">Blood group needed <span>*</span></label>
         <div className="ff-bg">{BLOOD_GROUPS.map(g=><button type="button" key={g} className={'ff-chip'+(f.bg===g?' on':'')} onClick={()=>set('bg',g)}>{g}</button>)}</div>
         {errs.bg&&<div className="db-form-err">{errs.bg}</div>}</div>
@@ -1299,8 +1333,13 @@ function FindFlow({open,onClose,onPoster}){
       <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">edit_note</span>{busy?'Please wait…':'Prepare message'}</button><button type="button" className="db-btn db-btn-outline" onClick={()=>setStep(2)}>Back</button></div>
     </form>}
     {step===4&&<div>
-      <div className="ff-msg">{msg}</div>
-      <a className="db-btn db-btn-primary" style={{width:'100%',justifyContent:'center',marginBottom:10}} href={'https://wa.me/?text='+encodeURIComponent(msg)} target="_blank" rel="noopener"><span className="material-symbols-outlined">send</span>Send on WhatsApp</a>
+      <div className="ff-msg">{custom||msg}</div>
+      <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
+        <button type="button" className="db-btn db-btn-outline db-btn-sm" disabled={wording} onClick={()=>improve('English')}><span className="material-symbols-outlined">auto_awesome</span>{wording?'Writing...':'Improve wording'}</button>
+        <button type="button" className="db-btn db-btn-outline db-btn-sm" disabled={wording} onClick={()=>improve('Telugu')}><span className="material-symbols-outlined">translate</span>తెలుగులో</button>
+        {custom&&<button type="button" className="db-btn db-btn-outline db-btn-sm" onClick={()=>setCustom('')}>Use original</button>}
+      </div>
+      <a className="db-btn db-btn-primary" style={{width:'100%',justifyContent:'center',marginBottom:10}} href={'https://wa.me/?text='+encodeURIComponent(custom||msg)} target="_blank" rel="noopener"><span className="material-symbols-outlined">send</span>Send on WhatsApp</a>
       <div style={{fontSize:13,color:'var(--db-gray-500)',marginBottom:12}}>WhatsApp opens. Pick friends, family or groups (Vizag blood groups, colony, college). Donors who tap the link can accept or ignore, and a match messages you directly.</div>
       <div className="db-form-actions" style={{flexWrap:'wrap'}}><button type="button" className="db-btn db-btn-outline" onClick={copy}><span className="material-symbols-outlined">{copied?'check':'content_copy'}</span>{copied?'Copied':'Copy message'}</button>
         <button type="button" className="db-btn db-btn-outline" onClick={()=>{const r=req;close();onPoster({patient_name:r.name,request_no:'VVDBR'+new Date().toISOString().slice(2,10).replace(/-/g,'')+String(Math.floor(1000+Math.random()*9000)),name:r.name,bg:r.bg,units:r.units,hospital:r.hospital,area:r.area,phone:r.phone,urgency:(r.urgency||'').charAt(0).toUpperCase()+(r.urgency||'').slice(1),contact:r.phone});}}><span className="material-symbols-outlined">campaign</span>Share poster</button>
@@ -1311,7 +1350,7 @@ function FindFlow({open,onClose,onPoster}){
 /* What a donor sees when they open the shared link */
 function HelpView({r,goHome}){
   const[checks,setChecks]=useState({age:false,weight:false,gap:false,well:false});
-  const[mybg,setMybg]=useState('');const[ans,setAns]=useState('');
+  const[mybg,setMybg]=useState('');const[ans,setAns]=useState('');const[dn,setDn]=useState('');const[dp,setDp]=useState('');const[dnErr,setDnErr]=useState('');
   const all=Object.values(checks).every(Boolean);
   const compatible=mybg&&CAN_RECEIVE_FROM[r.bg].includes(mybg);
   const fwd=helpMessage(r);
@@ -1331,15 +1370,82 @@ function HelpView({r,goHome}){
     :<div className="db-card" style={{padding:20,marginTop:14}}>
       <div className="db-form-group"><label className="db-form-label">Your blood group</label><select className="db-input" value={mybg} onChange={e=>setMybg(e.target.value)}><option value="">Select…</option>{BLOOD_GROUPS.map(g=><option key={g}>{g}</option>)}</select></div>
       {mybg&&!compatible&&<div className="ff-warn"><span className="material-symbols-outlined">info</span><div>{mybg} cannot give to a {r.bg} patient. Please forward this to someone with {CAN_RECEIVE_FROM[r.bg].join(', ')}.</div></div>}
+      <div className="db-form-row"><div className="db-form-group"><label className="db-form-label">Your first name</label><input className={'db-input'+(dnErr?' err':'')} value={dn} onChange={e=>{setDn(e.target.value);setDnErr('');}}/>{dnErr&&<div className="db-form-err">{dnErr}</div>}</div>
+        <div className="db-form-group"><label className="db-form-label">Phone <span style={{textTransform:'none',fontWeight:400}}>(optional, staff only)</span></label><input className="db-input" type="tel" inputMode="numeric" value={dp} onChange={e=>setDp(e.target.value)}/></div></div>
       <div className="db-form-label" style={{margin:'6px 0'}}>Quick eligibility check</div>
       {items.map(([k,t])=><label key={k} className="ff-check"><input type="checkbox" checked={checks[k]} onChange={e=>setChecks(c=>({...c,[k]:e.target.checked}))}/><span>{t}</span></label>)}
       <div className="db-form-actions" style={{flexWrap:'wrap'}}>
-        <button type="button" className="db-btn db-btn-primary" style={{flex:1}} disabled={!all||!compatible} onClick={()=>setAns('yes')}><span className="material-symbols-outlined">favorite</span>I can donate</button>
+        <button type="button" className="db-btn db-btn-primary" style={{flex:1}} disabled={!all||!compatible} onClick={()=>{if(!dn.trim()){setDnErr('Please enter your first name');return;}logReply({reqPhone:r.phone,reqBg:r.bg,hospital:String(r.hospital).slice(0,120),donorName:dn.trim().slice(0,60),donorPhone:dp.replace(/\D/g,'').slice(-10),donorBg:mybg});setAns('yes');}}><span className="material-symbols-outlined">favorite</span>I can donate</button>
         <button type="button" className="db-btn db-btn-outline" onClick={()=>setAns('no')}>Ignore</button></div>
       {!all&&<div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:8}}>Tick all four to accept. If one does not fit you, tap Ignore and forward it to a friend.</div>}
+      <button type="button" className="ff-link" onClick={()=>window.dispatchEvent(new CustomEvent('db-chat',{detail:{q:'Am I eligible to donate blood? I have a question.'}}))}><span className="material-symbols-outlined">chat</span>Not sure? Ask the assistant</button>
     </div>}
     <div style={{textAlign:'center',marginTop:18}}><button type="button" className="db-btn db-btn-outline db-btn-sm" onClick={goHome}>Open Digi Blood</button></div>
   </div></div>;
+}
+/* ── Assistant chatbot (Gemini free tier) ── */
+function Assistant(){
+  const{banks}=useContext(BloodCtx);
+  const[open,setOpen]=useState(false);const[msgs,setMsgs]=useState([]);const[txt,setTxt]=useState('');const[busy,setBusy]=useState(false);const end=useRef(null);
+  const stock=useMemo(()=>BLOOD_GROUPS.map(g=>g+': '+banks.reduce((s,b)=>s+(b.stock[g]||0),0)+' total ('+banks.filter(b=>b.stock[g]>0).sort((a,b)=>b.stock[g]-a.stock[g]).slice(0,3).map(b=>b.name.split(/[ ,]/).slice(0,4).join(' ')+' '+b.stock[g]).join(', ')+')').join('; '),[banks]);
+  async function send(t){
+    t=(t||'').trim();if(!t||busy)return;
+    const next=[...msgs,{role:'me',text:t.slice(0,500)}];setMsgs(next);setTxt('');setBusy(true);
+    try{const a=await chatReply(next.slice(-8),stock);setMsgs(m=>[...m,{role:'bot',text:String(a).replace(/\*\*/g,'').trim()}]);}
+    catch(e){setMsgs(m=>[...m,{role:'bot',text:friendly(e)+' For blood, please call a blood bank from the Availability tab.',err:1}]);}
+    setBusy(false);
+  }
+  useEffect(()=>{const h=e=>{setOpen(true);if(e.detail&&e.detail.q)setTimeout(()=>send(e.detail.q),50);};window.addEventListener('db-chat',h);return()=>window.removeEventListener('db-chat',h);});
+  useEffect(()=>{if(end.current)end.current.scrollIntoView({block:'end'});},[msgs,busy,open]);
+  const chips=['Can I donate blood?','How do I request blood?','Where is O- blood?','Who can I get blood from for B+?'];
+  return <React.Fragment>
+    {!open&&<button type="button" className="ca-fab" onClick={()=>setOpen(true)} aria-label="Ask the Digi Blood assistant"><span className="material-symbols-outlined">smart_toy</span><span className="ca-fab-t">Ask AI</span></button>}
+    {open&&<div className="ca-panel">
+      <div className="ca-hd"><div><b>Digi Blood assistant</b><small>Free AI helper. Not a doctor.</small></div><button type="button" onClick={()=>setOpen(false)} aria-label="Close"><span className="material-symbols-outlined">close</span></button></div>
+      <div className="ca-body">
+        {msgs.length===0&&<div className="ca-msg bot">Hi! I can help with donating, requesting blood, or finding stock. Ask in English, Telugu or Hindi.<div className="ca-chips">{chips.map(c=><button type="button" key={c} onClick={()=>send(c)}>{c}</button>)}</div></div>}
+        {msgs.map((m,i)=><div key={i} className={'ca-msg '+(m.role==='me'?'me':'bot')}>{m.text}</div>)}
+        {busy&&<div className="ca-msg bot">Typing...</div>}
+        <div ref={end}/>
+      </div>
+      <form className="ca-in" onSubmit={e=>{e.preventDefault();send(txt);}}><input value={txt} onChange={e=>setTxt(e.target.value)} placeholder="Type your question" maxLength={300}/><button type="submit" disabled={busy||!txt.trim()} aria-label="Send"><span className="material-symbols-outlined">send</span></button></form>
+      <div className="ca-note">Do not type names, phone numbers or medical records. Answers may be wrong; the blood bank doctor decides.</div>
+    </div>}
+  </React.Fragment>;
+}
+
+/* ── Availability forecast from our own saved history ── */
+function Forecast(){
+  const[h,setH]=useState(null);const[exp,setExp]=useState('');const[busy,setBusy]=useState(false);
+  useEffect(()=>{fetch(import.meta.env.BASE_URL+'history.json?t='+Math.floor(Date.now()/600000)).then(r=>r.ok?r.json():null).then(j=>setH(j&&j.points?j.points:[])).catch(()=>setH([]));},[]);
+  if(h===null)return null;
+  const hrs=h.length>1?(new Date(h[h.length-1].t)-new Date(h[0].t))/3600000:0;
+  const rows=h.length>=2&&hrs>=12?BLOOD_GROUPS.map(g=>{
+    const last=h[h.length-1],tL=new Date(last.t).getTime();
+    const win=h.filter(p=>tL-new Date(p.t).getTime()<=48*3600000);
+    const n=win.length;const xs=win.map(p=>(new Date(p.t).getTime()-tL)/3600000),ys=win.map(p=>p.g[g]||0);
+    const mx=xs.reduce((a,b)=>a+b,0)/n,my=ys.reduce((a,b)=>a+b,0)/n;
+    const den=xs.reduce((a,x)=>a+(x-mx)*(x-mx),0)||1;const slope=xs.reduce((a,x,i)=>a+(x-mx)*(ys[i]-my),0)/den;
+    const now=last.g[g]||0;const proj=Math.max(0,Math.round(now+slope*24));
+    const lo=Math.min(...ys);
+    const trend=slope*24>Math.max(2,now*0.15)?'up':slope*24<-Math.max(2,now*0.15)?'down':'flat';
+    const risk=proj<=Math.max(5,lo*0.5)||(trend==='down'&&proj<15)?'low':'ok';
+    return{g,now,proj,trend,risk,lo};
+  }):null;
+  async function explain(){
+    setBusy(true);
+    try{const t=await gen({temperature:0.3,input:'Citywide blood stock now and projected in 24h (units): '+rows.map(r=>`${r.g} ${r.now} -> ${r.proj}`).join('; '),system:'You explain blood stock trends for the public in Visakhapatnam. In 2 short plain sentences say which groups may run low soon and which look fine. These are estimates from a simple trend of the last days, not guarantees. No medical advice.'});setExp(String(t).trim());}
+    catch(e){setExp(friendly(e));}
+    setBusy(false);
+  }
+  return <div className="fc-card">
+    <div className="fc-hd"><span className="material-symbols-outlined">trending_up</span><div><b>Stock forecast (next 24 hours)</b><small>Estimate from the last days of eRaktKosh data. Not a guarantee.</small></div></div>
+    {!rows?<div className="fc-wait">Collecting data. The forecast appears after about a day of history ({h.length} reading{h.length===1?'':'s'} saved so far, one every 2 hours).</div>
+    :<React.Fragment>
+      <div className="fc-grid">{rows.map(r=><div key={r.g} className={'fc-cell '+(r.risk==='low'?'low':'')}><div className="g">{r.g}</div><div className="n">{r.now}<span className="material-symbols-outlined">{r.trend==='up'?'trending_up':r.trend==='down'?'trending_down':'trending_flat'}</span></div><div className="p">{r.risk==='low'?'May run low':'Likely OK'} · ~{r.proj}</div></div>)}</div>
+      {exp?<div className="fc-exp">{exp}</div>:<button type="button" className="db-btn db-btn-outline db-btn-sm" disabled={busy} onClick={explain}><span className="material-symbols-outlined">auto_awesome</span>{busy?'Thinking...':'Explain in simple words'}</button>}
+    </React.Fragment>}
+  </div>;
 }
 function DigiBloodApp(){
   const[page,setPage]=useState(()=>{const h=location.hash.slice(1);return ['avail','req','donors','camps','about'].includes(h)?h:h==='register'?'donors':'home'});
@@ -1376,6 +1482,7 @@ function DigiBloodApp(){
       <FindFlow open={reqOpen} onClose={()=>setReqOpen(false)} onPoster={setPosterData}/>
       <PosterModal req={posterData} onClose={()=>setPosterData(null)}/>
       <ThankYou done={done} onClose={()=>setDone(null)} onPoster={p=>{setDone(null);setPosterData(p);}} goAvail={()=>{setDone(null);setPage('avail');window.scrollTo({top:0});}}/>
+      <Assistant/>
       <Toasts list={toasts}/>
     </div>
   </DataProvider></BloodProvider>;
