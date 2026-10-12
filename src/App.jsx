@@ -1,7 +1,7 @@
 import React,{useState,useEffect,useContext,createContext,useCallback,useRef,useMemo} from 'react';
 import {createRoot} from 'react-dom/client';
 import './styles.css';
-import {LIVE,watch,guard,submitRecord,logReply} from './store.js';
+import {LIVE,watch,guard,submitRecord,logReply,getMyRequest} from './store.js';
 import Admin from './Admin.jsx';
 import {CAN_RECEIVE_FROM,helpLink,parseHelp,helpMessage,URG_TEXT} from './match.js';
 import {parseRequest,rewriteMessage,chatReply,gen,friendly,shrinkImage,PH} from './ai.js';
@@ -366,14 +366,27 @@ function ThankYou({done,onClose,onPoster,goAvail}){
 }
 const SEEN_KEY='db_seen';
 const np=s=>{let d=String(s||'').replace(/\D/g,'');if(d.length===12&&d.startsWith('91'))d=d.slice(2);if(d.length===11&&d[0]==='0')d=d.slice(1);return d;};
+const MINE='db_mine';
+const getMine=()=>{try{return JSON.parse(localStorage.getItem(MINE)||'[]');}catch(e){return[];}};
+function addMine(r){try{localStorage.setItem(MINE,JSON.stringify([r,...getMine()].slice(0,5)));}catch(e){}}
+const ST={pending:['hourglass_top','Admin is reviewing your request','It is saved and with our admin team. Once approved it goes live on this tab.'],approved:['check_circle','Live now','Donors can see it on the Requests tab.'],open:['check_circle','Live now','Donors can see it on the Requests tab.'],fulfilled:['verified','Blood arranged','Thank you. This request is closed.'],rejected:['info','Not published','Our team could not publish it. Please call a blood bank from Availability.']};
+function MyRequests(){
+  const[rows,setRows]=useState(getMine());const[sts,setSts]=useState({});
+  useEffect(()=>{let ok=true;rows.forEach(async r=>{const s=await getMyRequest(r.id);if(ok&&s)setSts(p=>({...p,[r.id]:s}));});return()=>{ok=false;};},[]);
+  if(!rows.length)return null;
+  return <div style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)',padding:'16px 0'}}><div className="db-cnt"><div className="ff-opt" style={{marginTop:0}}>Your requests from this phone</div>
+    {rows.map(r=>{const st=ST[sts[r.id]||'pending']||ST.pending;return <div key={r.id} className={'ff-done'+((sts[r.id]||'pending')==='pending'?' ff-warn':'')} style={{marginBottom:8}}><span className="material-symbols-outlined">{st[0]}</span><div><b>{r.name} - {r.bg} - {st[1]}</b><span>{st[2]}</span></div></div>;})}
+  </div></div>;
+}
 async function sendRecord(kind,data,key){
   if(typeof navigator!=='undefined'&&navigator.onLine===false)return{ok:false,msg:'You seem to be offline. Please check your internet and try again.'};
   let seen={};try{seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'{}');}catch(e){}
   const k=kind+':'+key;if(seen[k]&&Date.now()-seen[k]<86400000)return{ok:false,msg:kind==='donors'?'This number is already registered. Thank you - our team is reviewing it.':'You already sent this. Our team has it and will get in touch.'};
-  try{if(localStorage.getItem('db_dry')!=='1')await Promise.race([submitRecord(kind,data),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);}
+  let rid='';try{if(localStorage.getItem('db_dry')!=='1')rid=await Promise.race([submitRecord(kind,data),new Promise((_,r)=>setTimeout(()=>r(new Error('timeout')),12000))]);}
   catch(e){return{ok:false,msg:'Could not send right now. Please try again in a moment.'};}
   seen[k]=Date.now();try{localStorage.setItem(SEEN_KEY,JSON.stringify(seen));}catch(e){}
-  return{ok:true};
+  if(kind==='requests'&&rid)addMine({id:rid,name:data.name,bg:data.bg,hospital:data.hospital,t:Date.now()});
+  return{ok:true,id:rid};
 }
 const dbDone=d=>window.dispatchEvent(new CustomEvent('db-done',{detail:d}));
 const dbToast=(msg,type)=>window.dispatchEvent(new CustomEvent('db-toast',{detail:{msg,type}}));
@@ -755,6 +768,7 @@ function RequestsPage({openReq}){
   const filtered=REQUESTS.filter(r=>{if(fBg!=='All'&&r.bg!==fBg)return false;if(fUrg!=='All'&&r.urgency!==fUrg)return false;if(fSt!=='All'&&r.status!==fSt)return false;if(search&&![r.name,r.hospital,r.area].join(' ').toLowerCase().includes(search.toLowerCase()))return false;return true;});
   const stats={total:REQUESTS.length,open:REQUESTS.filter(r=>r.status==='open').length,crit:REQUESTS.filter(r=>r.urgency==='critical'&&r.status==='open').length,done:REQUESTS.filter(r=>r.status==='fulfilled').length};
   return <React.Fragment>
+    <MyRequests/>
     <div style={{background:'#fff',borderBottom:'1px solid var(--db-gray-200)',padding:'28px 0'}}><div className="db-cnt">
       <div style={{display:'flex',alignItems:'flex-end',justifyContent:'space-between',flexWrap:'wrap',gap:12}}>
         <div><div className="db-sec-title">Active Blood Requests</div><div className="db-sec-sub">Real-time requests from Vizag hospitals &mdash; respond and save a life</div></div>
@@ -838,9 +852,9 @@ function FindFlow({open,onClose,onPoster}){
   const[f,setF]=useState(INIT);const[step,setStep]=useState(1);const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);const[busy,setBusy]=useState(false);const[copied,setCopied]=useState(false);
   const donorsAll=useContext(DataCtx).donors;
   const[paste,setPaste]=useState('');const[imgName,setImgName]=useState('');const imgRef=useRef(null);const[reading,setReading]=useState(false);const[readMsg,setReadMsg]=useState('');const[mode,setMode]=useState('');const[captured,setCaptured]=useState('');
-  const[wording,setWording]=useState(false);const[custom,setCustom]=useState('');
+  const[saved,setSaved]=useState('');const[wording,setWording]=useState(false);const[custom,setCustom]=useState('');
   function set(k,v){setF(p=>({...p,[k]:v}));}
-  function close(){setStep(1);setF(INIT);setErrs({});setAOther(false);setCopied(false);setPaste('');setImgName('');setReadMsg('');setMode('');setCaptured('');setCustom('');onClose();}
+  function close(){setSaved('');setStep(1);setF(INIT);setErrs({});setAOther(false);setCopied(false);setPaste('');setImgName('');setReadMsg('');setMode('');setCaptured('');setCustom('');onClose();}
   const areaWords=(f.area||'').toLowerCase().split(/[\s,()]+/).filter(w=>w.length>3);
   const list=banks.filter(b=>b.stock[f.bg]>0).map(b=>({...b,near:areaWords.some(w=>(b.area+' '+b.name).toLowerCase().includes(w))}))
     .sort((a,b)=>(b.near-a.near)||(b.stock[f.bg]-a.stock[f.bg])).slice(0,5);
@@ -874,11 +888,11 @@ function FindFlow({open,onClose,onPoster}){
     if(!/^\d{10}$/.test(np(f.phone)))e.phone='Enter valid 10-digit number';
     setErrs(e);if(Object.keys(e).length){setTimeout(()=>{const el=document.querySelector('.db-modal .db-input.err,.db-modal .db-input.error,.db-modal [class*="err"]');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center',behavior:'smooth'});},50);return;}
     const g=guard(ev);if(g==='consent')return;
-    /* never block the message: when over the limit we just skip saving a copy for staff */
+    let sv='skip';/* never block the message: when over the limit we just skip saving a copy for staff */
     if(g==='ok'){setBusy(true);try{// also lets the Vizag Volunteers team see it (staff approve before it is public)
-      await sendRecord('requests',{name:f.name.trim(),phone:np(f.phone),bg:f.bg,units,hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:('Age '+age+', '+f.gender+'. Donor request sent on WhatsApp.').slice(0,300)},np(f.phone)+f.hospital.trim().toLowerCase()+'-find');
-      }catch(x){}setBusy(false);}
-    setStep(4);window.scrollTo({top:0});
+      const rs=await sendRecord('requests',{name:f.name.trim(),phone:np(f.phone),bg:f.bg,units,hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:('Age '+age+', '+f.gender+'. Donor request sent on WhatsApp.').slice(0,300)},np(f.phone)+f.hospital.trim().toLowerCase()+'-find');
+      sv=(rs.ok||/already/i.test(rs.msg||''))?'ok':'fail';}catch(x){sv='fail';}setBusy(false);}
+    setSaved(sv);setStep(4);window.scrollTo({top:0});
   }
   const req={...f,units,phone:np(f.phone)};
   const msg=step===4?helpMessage(req):'';
@@ -892,8 +906,8 @@ function FindFlow({open,onClose,onPoster}){
     setWording(false);
   }
   function copy(){try{navigator.clipboard.writeText(custom||msg);}catch(e){}setCopied(true);setTimeout(()=>setCopied(false),2500);}
-  const titles={1:'Find Blood',2:'Blood banks for '+f.bg,3:'Ask donors for help',4:'Send to donors'};
-  return <Modal open={open} onClose={close} title={titles[step]} sub={step===1?'Tell us what is needed. We will check blood banks first.':step===2?'Live stock from eRaktKosh. Call the bank before you go.':step===3?'A few details for the message':'Step 4 of 4'}>
+  const titles={1:'Find Blood',2:'Blood banks for '+f.bg,3:'Ask donors for help',4:saved==='ok'?'Request submitted':'Your message is ready'};
+  return <Modal open={open} onClose={close} title={titles[step]} sub={step===1?'Tell us what is needed. We will check blood banks first.':step===2?'Live stock from eRaktKosh. Call the bank before you go.':step===3?'A few details for the message':saved==='ok'?'Step 4 of 4 - all done':'Step 4 of 4'}>
     {step===1&&<div>
       <div className="ff-ai">
         {!mode&&<button type="button" className="ff-ai-btn" onClick={()=>setMode('open')}><span className="material-symbols-outlined">auto_awesome</span><span><b>Have a message or a photo of the slip?</b><small>Paste it or upload it - AI fills the form for you</small></span></button>}
@@ -939,6 +953,9 @@ function FindFlow({open,onClose,onPoster}){
       <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">edit_note</span>{busy?'Please wait…':'Prepare message'}</button><button type="button" className="db-btn db-btn-outline" onClick={()=>setStep(2)}>Back</button></div>
     </form>}
     {step===4&&<div>
+      {saved==='ok'?<div className="ff-done"><span className="material-symbols-outlined">check_circle</span><div><b>Your request has been submitted</b><span>The Vizag Volunteers team has it. Our admin is now reviewing it. Once approved it goes live on the Requests tab. Until then you will see it under 'Your requests from this phone' on that tab, with its status. Nothing more is needed from you. You can close this window.</span></div></div>
+       :<div className="ff-done ff-warn"><span className="material-symbols-outlined">info</span><div><b>{saved==='fail'?'We could not send a copy to our team right now':'Your message is ready'}</b><span>{saved==='fail'?'Please send the message below to donors yourself, and call a blood bank from the Availability tab.':'Send the message below to donors on WhatsApp.'}</span></div></div>}
+      <div className="ff-opt">Optional: reach donors faster. Send this message to your WhatsApp groups and friends.</div>
       <div className="ff-msg">{custom||msg}</div>
       <div style={{display:'flex',gap:8,flexWrap:'wrap',marginBottom:12}}>
         <button type="button" className="db-btn db-btn-outline db-btn-sm" disabled={wording} onClick={()=>improve('English')}><span className="material-symbols-outlined">auto_awesome</span>{wording?'Writing...':'Improve wording'}</button>
@@ -1100,4 +1117,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-          }
+      }
