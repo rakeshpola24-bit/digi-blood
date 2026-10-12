@@ -1,7 +1,7 @@
 // Gemini (free tier) through Firebase AI Logic. No API key in the code; the Firebase project holds it.
 import {fbApp,LIVE} from './store.js';
 const MODELS=['gemini-3.5-flash','gemini-3.5-flash-lite','gemini-2.5-flash'];
-let sdk=null,acInit=false;
+let sdk=null,acInit=false,good=0;
 const RECAPTCHA_SITE_KEY='6Ld0OustAAAAACNswzs7NSjq_VZkn9Qx8PJ9sTms'; // public site key (App Check, protects the free Gemini quota)
 function quota(){const k='db_ai',now=Date.now();let a=[];try{a=JSON.parse(localStorage.getItem(k)||'[]').filter(t=>now-t<3600000);}catch(e){}
   if(a.length>=30)return false;a.push(now);try{localStorage.setItem(k,JSON.stringify(a));}catch(e){}return true;}
@@ -14,12 +14,12 @@ export async function gen({system,input,schema,temperature=0.2}){
   if(!acInit){const ac=await import('firebase/app-check');ac.initializeAppCheck(fbApp,{provider:new ac.ReCaptchaEnterpriseProvider(RECAPTCHA_SITE_KEY),isTokenAutoRefreshEnabled:true});acInit=true;}
   const ai=sdk.getAI(fbApp,{backend:new sdk.GoogleAIBackend()});
   let last;
-  for(const name of MODELS){
+  for(const name of [...MODELS.slice(good),...MODELS.slice(0,good)]){
     try{
       const cfg={temperature};if(schema){cfg.responseMimeType='application/json';cfg.responseSchema=schema(sdk.Schema);}
       const model=sdk.getGenerativeModel(ai,{model:name,generationConfig:cfg,...(system?{systemInstruction:system}:{})});
       const r=await Promise.race([model.generateContent(input),wait(35000)]);
-      return r.response.text();
+      good=MODELS.indexOf(name);return r.response.text();
     }catch(e){last=e;}
   }
   throw last||new Error('AI unavailable');
@@ -60,11 +60,15 @@ export async function areaDistances(from,areas){
   const m={};areas.forEach(a=>{if(c[from+'|'+a]!=null)m[a]=c[from+'|'+a];});return m;
 }
 // 4) Chat assistant.
-export async function chatReply(history,stockSummary){
+export async function chatReply(history,stockSummary,live){
   return gen({temperature:0.3,input:{contents:history.map(m=>({role:m.role==='me'?'user':'model',parts:[{text:m.text}]}))},
-    system:`You are the Digi Blood assistant for Vizag Volunteers in Visakhapatnam, India. Help blood seekers and donors. Be short (under 90 words), warm, plain words. Reply in the language the user writes in (English, Telugu or Hindi).
-How the app works: "Request Blood" lets someone pick a blood group, units and area, see live blood bank stock (from eRaktKosh) with call buttons, and if banks are empty or far, prepare a WhatsApp message to send to friends and groups. Donors open the link, do a quick eligibility check, and accept or ignore. "Register as Donor" adds a donor (reviewed by staff). Availability tab shows all banks.
-Donor eligibility (whole blood): age 18-65, weight 50 kg or more, haemoglobin at least 12.5 g/dL, healthy that day, no whole-blood donation in the last 3 months. Compatibility (patient can receive from): ${Object.entries({'A+':'A+ A- O+ O-','A-':'A- O-','B+':'B+ B- O+ O-','B-':'B- O-','AB+':'all groups','AB-':'A- B- AB- O-','O+':'O+ O-','O-':'O-'}).map(([k,v])=>k+': '+v).join('; ')}.
-You are not a doctor. For medical conditions, medicines, recent illness, surgery, tattoos, pregnancy or anything unclear, say the blood bank doctor decides at the screening. Never promise that blood is available; say to call the bank first. Do not ask for names, phone numbers or medical records.
-Live stock now (units per group, top banks): ${stockSummary||'not loaded'}`});
+    system:`You are the Digi Blood assistant for Vizag Volunteers in Visakhapatnam, India. The person may be stressed or scared and needs blood for someone. Your job is to ease that: answer directly, give the exact next steps, and never send them away to "check the website" or "see the app" instead of answering.
+LANGUAGE: reply in the language of the user's LAST message. English message -> English. Telugu script -> Telugu. Hindi script -> Hindi. Default is English. Never switch language on your own.
+STYLE: under 90 words, plain short sentences, calm and kind, no markdown, no bold. Give real numbers and names from the live data below. Use numbered steps when guiding.
+ACTION BUTTONS: when an action is the next step, end your reply with ONE tag on its own line, exactly one of: [[request]] (open the Request Blood form), [[donor]] (open the donor registration form), [[availability]] (stock page), [[requests]] (open requests page), [[camps]] (camps page). The app turns the tag into a button. Never write URLs. Use the tag only as the next step, after you have already answered.
+HOW THE APP WORKS: Request Blood = pick group, units, area, see live blood bank stock with call buttons, and if banks are empty or far, prepare a WhatsApp message (with AI wording and poster) to send to friends and groups. Donors who tap the link do a quick eligibility check, then accept or ignore. Register as Donor = adds a donor, reviewed by staff before public. Availability = all banks. For an urgent need: first say which banks have the group now (from live stock) and to call them, then offer [[request]].
+Donor eligibility (whole blood): age 18-65, weight 50 kg or more, haemoglobin at least 12.5 g/dL, healthy that day, no whole-blood donation in the last 3 months. Compatibility (patient can receive from): ${Object.entries({'A+':'A+ A- O+ O-','A-':'A- O-','B+':'B+ B- O+ O-','B-':'B- O-','AB+':'all groups','AB-':'A- B- AB- O-','O+':'O+ O-','O-':'O- only'}).map(([k,v])=>k+': '+v).join('; ')}.
+You are not a doctor. For medical conditions, medicines, recent illness, surgery, tattoos, pregnancy: say the blood bank doctor decides at screening. Never promise blood is available; say to call the bank first. Do not ask for names, phone numbers or medical records.
+LIVE blood bank stock now (units per group citywide, top banks with phone): ${stockSummary||'not loaded'}
+LIVE community data: ${live||'not loaded'}`});
 }
