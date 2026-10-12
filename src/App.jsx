@@ -849,7 +849,7 @@ function AboutPage(){
 /* ── Donor request: find blood, then ask donors on WhatsApp ── */
 function FindFlow({open,onClose,onPoster}){
   const{banks,loading}=useContext(BloodCtx);
-  const INIT={comp:'whole',bg:'',units:'1',area:'',name:'',age:'',gender:'',hospital:'',phone:'',urgency:'urgent'};
+  const INIT={src:'bank',comp:'whole',bg:'',units:'1',area:'',name:'',age:'',gender:'',hospital:'',phone:'',urgency:'urgent'};
   const[f,setF]=useState(INIT);const[step,setStep]=useState(1);const[errs,setErrs]=useState({});const[aOther,setAOther]=useState(false);const[busy,setBusy]=useState(false);const[copied,setCopied]=useState(false);
   const donorsAll=useContext(DataCtx).donors;
   const[paste,setPaste]=useState('');const[imgName,setImgName]=useState('');const imgRef=useRef(null);const[reading,setReading]=useState(false);const[readMsg,setReadMsg]=useState('');const[mode,setMode]=useState('');const[captured,setCaptured]=useState('');
@@ -881,7 +881,7 @@ function FindFlow({open,onClose,onPoster}){
     }catch(e){setReadMsg(friendly(e));}
     setReading(false);
   }
-  function next1(){const e={};if(f.comp==='pick')e.comp='Choose which component';if(!f.bg)e.bg='Choose the blood group';{const m=areaErr(f.area,aOther);if(m)e.area=m;}setErrs(e);if(!Object.keys(e).length)setStep(f.comp==='whole'?2:3);}
+  function next1(){const e={};if(f.comp==='pick')e.comp='Choose which component';if(!f.bg)e.bg='Choose the blood group';{const m=areaErr(f.area,aOther);if(m)e.area=m;}setErrs(e);if(!Object.keys(e).length)setStep(f.src==='bank'?2:3);}
   async function next3(ev){
     ev.preventDefault();const e={};
     if(!f.name.trim())e.name='Required';const age=parseInt(f.age);if(f.age&&(!age||age<0||age>110))e.age='Enter a valid age';
@@ -932,16 +932,16 @@ function FindFlow({open,onClose,onPoster}){
         </div>}
         {captured&&<div className="ff-ok"><span className="material-symbols-outlined">check_circle</span><div>Read from your {captured}. Please check the details below{f.name?' and on the next screens':''}. Nothing is sent until you confirm.</div></div>}
       </div>
-      <div className="db-form-group"><label className="db-form-label">What do you need?</label>
-        <div className="ff-comp"><button type="button" className={'ff-chip ff-chip-w'+(f.comp==='whole'?' on':'')} onClick={()=>set('comp','whole')}>Whole blood</button><button type="button" className={'ff-chip ff-chip-w'+(f.comp!=='whole'?' on':'')} onClick={()=>f.comp==='whole'&&set('comp','pick')}>Blood component</button></div>
-        {f.comp!=='whole'&&<div className="ff-comp" style={{marginTop:8}}>{Object.keys(COMP).filter(k=>k!=='whole').map(k=><button type="button" key={k} className={'ff-chip ff-chip-w ff-chip-s'+(f.comp===k?' on':'')} onClick={()=>set('comp',k)}>{COMP[k]}</button>)}</div>}
-        {errs.comp&&<div className="db-form-err">{errs.comp}</div>}</div>
+      <div className="db-form-group"><label className="db-form-label">How do you want to get blood?</label>
+        <div className="ff-comp ff-src"><button type="button" className={'ff-chip ff-chip-w'+(f.src==='bank'?' on':'')} onClick={()=>set('src','bank')}><span className="material-symbols-outlined">local_hospital</span>From a blood bank</button><button type="button" className={'ff-chip ff-chip-w'+(f.src==='donor'?' on':'')} onClick={()=>set('src','donor')}><span className="material-symbols-outlined">volunteer_activism</span>I need a live donor</button></div>
+        <div style={{fontSize:12,color:'var(--db-gray-500)',marginTop:6}}>{f.src==='bank'?'Ready stored blood. We show banks that have it.':'A person who comes to donate. We help you reach donors on WhatsApp.'}</div></div>
+      <div className="db-form-group"><label className="db-form-label">Type of blood needed</label><select className="db-input" value={f.comp} onChange={e=>set('comp',e.target.value)}>{Object.keys(COMP).map(k=><option key={k} value={k}>{COMP[k]}</option>)}</select></div>
       <div className="db-form-group"><label className="db-form-label">Blood group needed <span>*</span></label>
         <div className="ff-bg">{BLOOD_GROUPS.map(g=><button type="button" key={g} className={'ff-chip'+(f.bg===g?' on':'')} onClick={()=>set('bg',g)}>{g}</button>)}</div>
         {errs.bg&&<div className="db-form-err">{errs.bg}</div>}</div>
       <div className="db-form-group"><label className="db-form-label">Units needed</label><select className="db-input" value={f.units} onChange={e=>set('units',e.target.value)}>{[1,2,3,4,5,6,7,8,9,10].map(n=><option key={n}>{n}</option>)}</select></div>
       <AreaPicker label="Where is the patient? (area)" req placeholder="Start typing, e.g. MVP Colony" value={f.area} onChange={v=>set('area',v)} error={errs.area} other={aOther} setOther={setAOther}/>
-      <div className="db-form-actions"><button type="button" className="db-btn db-btn-primary" style={{flex:1}} onClick={next1}><span className="material-symbols-outlined">{f.comp==='whole'?'search':'volunteer_activism'}</span>{f.comp==='whole'?'Show blood banks':'Next: reach donors'}</button></div>
+      <div className="db-form-actions"><button type="button" className="db-btn db-btn-primary" style={{flex:1}} onClick={next1}><span className="material-symbols-outlined">{f.src==='bank'?'search':'volunteer_activism'}</span>{f.src==='bank'?'Show blood banks':'Next: reach donors'}</button></div>
     </div>}
     {step===2&&<div>
       {loading?<div className="db-empty">Loading blood bank stock...</div>:list.length===0?<div className="ff-warn"><span className="material-symbols-outlined">warning</span><div><b>No blood bank has {f.bg} right now.</b><br/>The best next step is to ask donors.</div></div>
@@ -969,7 +969,7 @@ function FindFlow({open,onClose,onPoster}){
       <div className="db-form-group"><label className="db-form-label">Your phone (donors will message you) <span>*</span></label><input className={'db-input'+(errs.phone?' err':'')} type="tel" inputMode="numeric" placeholder="10-digit mobile" value={f.phone} onChange={e=>set('phone',e.target.value)}/>{errs.phone&&<div className="db-form-err">{errs.phone}</div>}</div>
       <details className="ff-more"><summary>More details (optional)</summary><div className="db-form-row"><div className="db-form-group"><label className="db-form-label">Age</label><input className={'db-input'+(errs.age?' err':'')} type="number" inputMode="numeric" min="0" max="110" value={f.age} onChange={e=>set('age',e.target.value)}/>{errs.age&&<div className="db-form-err">{errs.age}</div>}</div><div className="db-form-group"><label className="db-form-label">Gender</label><select className={'db-input'+(errs.gender?' err':'')} value={f.gender} onChange={e=>set('gender',e.target.value)}><option value="">Select…</option><option>Male</option><option>Female</option><option>Other</option></select>{errs.gender&&<div className="db-form-err">{errs.gender}</div>}</div></div><div className="db-form-group"><label className="db-form-label">Urgency</label><select className="db-input" value={f.urgency} onChange={e=>set('urgency',e.target.value)}><option value="critical">Critical - now</option><option value="urgent">Urgent - few hours</option><option value="routine">Routine - scheduled</option></select></div></details>
       <div style={{fontSize:13,color:'var(--db-gray-500)',marginBottom:6}}>Needs {units} unit{units>1?'s':''} of <b>{f.bg}</b> at {f.area}. Donors who can give: {compat.join(', ')}.</div>
-      <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">edit_note</span>{busy?'Please wait…':'Prepare message'}</button><button type="button" className="db-btn db-btn-outline" onClick={()=>setStep(f.comp==='whole'?2:1)}>Back</button></div>
+      <Consent/><div className="db-form-actions"><button type="submit" disabled={busy} className="db-btn db-btn-primary" style={{flex:1}}><span className="material-symbols-outlined">edit_note</span>{busy?'Please wait…':'Prepare message'}</button><button type="button" className="db-btn db-btn-outline" onClick={()=>setStep(f.src==='bank'?2:1)}>Back</button></div>
     </form>}
     {step===4&&<div>
       {saved==='ok'?<div className="ff-done"><span className="material-symbols-outlined">check_circle</span><div><b>Your request is live</b><span>Donors can now see it on the Requests tab. Next, send it to donors on WhatsApp to find one faster.</span></div></div>
@@ -1136,4 +1136,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-      }
+              }
