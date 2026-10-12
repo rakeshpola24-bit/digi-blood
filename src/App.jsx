@@ -350,6 +350,7 @@ function ThankYou({done,onClose,onPoster,goAvail}){
   </div>;
 }
 const SEEN_KEY='db_seen';
+const np=s=>{let d=String(s||'').replace(/\D/g,'');if(d.length===12&&d.startsWith('91'))d=d.slice(2);if(d.length===11&&d[0]==='0')d=d.slice(1);return d;};
 async function sendRecord(kind,data,key){
   if(typeof navigator!=='undefined'&&navigator.onLine===false)return{ok:false,msg:'You seem to be offline. Please check your internet and try again.'};
   let seen={};try{seen=JSON.parse(localStorage.getItem(SEEN_KEY)||'{}');}catch(e){}
@@ -855,16 +856,16 @@ function FindFlow({open,onClose,onPoster}){
     ev.preventDefault();const e={};
     if(!f.name.trim())e.name='Required';const age=parseInt(f.age);if(!age||age<0||age>110)e.age='Enter age';
     if(!f.gender)e.gender='Choose one';if(!f.hospital.trim())e.hospital='Required';
-    if(!/^\d{10}$/.test(f.phone.replace(/\D/g,'')))e.phone='Enter valid 10-digit number';
-    setErrs(e);if(Object.keys(e).length)return;
+    if(!/^\d{10}$/.test(np(f.phone)))e.phone='Enter valid 10-digit number';
+    setErrs(e);if(Object.keys(e).length){setTimeout(()=>{const el=document.querySelector('.db-modal .db-input.err,.db-modal .db-input.error,.db-modal [class*="err"]');if(el&&el.scrollIntoView)el.scrollIntoView({block:'center',behavior:'smooth'});},50);return;}
     const g=guard(ev);if(g==='consent')return;
-    if(g==='rate'){dbToast('Too many submissions from this device. Please try again after an hour.','err');return;}
-    if(g==='ok'){setBusy(true);// also lets the Vizag Volunteers team see it (staff approve before it is public)
-      await sendRecord('requests',{name:f.name.trim(),phone:f.phone.replace(/\D/g,''),bg:f.bg,units,hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:('Age '+age+', '+f.gender+'. Donor request sent on WhatsApp.').slice(0,300)},f.phone.replace(/\D/g,'')+f.hospital.trim().toLowerCase()+'-find');
-      setBusy(false);}
+    /* never block the message: when over the limit we just skip saving a copy for staff */
+    if(g==='ok'){setBusy(true);try{// also lets the Vizag Volunteers team see it (staff approve before it is public)
+      await sendRecord('requests',{name:f.name.trim(),phone:np(f.phone),bg:f.bg,units,hospital:f.hospital.trim(),area:f.area.trim(),urgency:f.urgency,note:('Age '+age+', '+f.gender+'. Donor request sent on WhatsApp.').slice(0,300)},np(f.phone)+f.hospital.trim().toLowerCase()+'-find');
+      }catch(x){}setBusy(false);}
     setStep(4);window.scrollTo({top:0});
   }
-  const req={...f,units,phone:f.phone.replace(/\D/g,'')};
+  const req={...f,units,phone:np(f.phone)};
   const msg=step===4?helpMessage(req):'';
   async function improve(lang){
     setWording(true);
@@ -1083,4 +1084,4 @@ createRoot(document.getElementById('db-root')).render(location.hash==='#admin'?<
 if(window.parent!==window){
   const send=()=>window.parent.postMessage({type:'digi-blood-height',height:document.documentElement.scrollHeight},'*');
   new ResizeObserver(send).observe(document.body);send();
-    }
+  }
