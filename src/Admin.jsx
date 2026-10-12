@@ -1,11 +1,55 @@
 import React,{useState,useEffect} from 'react';
 import {LIVE,staff} from './store.js';
+import {rankDonors,helpMessage} from './match.js';
+import {areaDistances} from './ai.js';
 
-const TABS=[['requests','Blood requests'],['donors','Donors'],['camps','Camps']];
+const TABS=[['requests','Blood requests'],['helpReplies','Donor replies'],['donors','Donors'],['camps','Camps']];
 const box={background:'#fff',border:'1px solid #E9ECEF',borderRadius:12,padding:14,marginBottom:10};
 const btn=(bg,c)=>({background:bg,color:c||'#fff',border:0,borderRadius:8,padding:'8px 14px',fontWeight:600,fontSize:14,cursor:'pointer'});
 
+
+function DonorMatch({r}){
+  const[st,setSt]=useState({loading:true});
+  useEffect(()=>{let off=false;
+    const un=staff.watchAll('donors',async ds=>{
+      const ok=ds.filter(d=>d.status==='approved');
+      let prox={},aiOk=true;
+      try{prox=await areaDistances(r.area,[...new Set(ok.map(d=>d.area).filter(Boolean))]);}catch(e){aiOk=false;}
+      const ranked=rankDonors(r,ds,prox).slice(0,15);
+      const rows=await Promise.all(ranked.map(async d=>({...d,phone:await staff.phone(d.id)})));
+      if(!off)setSt({rows,aiOk,total:ok.length});
+    });
+    return()=>{off=true;un&&un();};
+  },[r.id]);
+  if(st.loading)return <p style={{fontSize:13}}>Finding the best donors...</p>;
+  const age=(/Age (\d+)/.exec(r.note||'')||[])[1]||'',gender=(/, (Male|Female|Other)\./.exec(r.note||'')||[])[1]||'';
+  const msg=helpMessage({...r,age,gender});
+  const LAST={first:'first time',gt6:'6+ months ago',lt6:'3-6 months ago'};
+  return <div style={{background:'#F8F9FA',borderRadius:10,padding:10,marginTop:8}}>
+    <div style={{fontSize:12,color:'#868E96',marginBottom:6}}>Best matches for {r.bg} near {r.area}. Skips donors who gave blood in the last 3 months.{!st.aiOk&&' (AI distance not available, matched by exact area only.)'}</div>
+    {st.rows.length===0&&<div style={{fontSize:14}}>No approved donors match yet ({st.total} approved donors in total).</div>}
+    {st.rows.map(d=><div key={d.id} style={{display:'flex',gap:8,alignItems:'center',padding:'6px 0',borderTop:'1px solid #E9ECEF',flexWrap:'wrap'}}>
+      <div style={{flex:1,minWidth:160}}><b>{d.name}</b> <span style={{background:'#E62E32',color:'#fff',borderRadius:6,padding:'1px 6px',fontSize:12}}>{d.bg}</span><div style={{fontSize:12,color:'#495057'}}>{d.area} · {d.why.join(', ')} · {LAST[d.lastDonation]||'-'}</div></div>
+      {d.phone?<a style={{...btn('#25D366'),textDecoration:'none'}} href={'https://wa.me/91'+d.phone.replace(/\D/g,'').slice(-10)+'?text='+encodeURIComponent(msg)} target="_blank" rel="noopener">WhatsApp</a>:<span style={{fontSize:12,color:'#868E96'}}>no phone</span>}
+    </div>)}
+  </div>;
+}
+function ReplyRow({r}){
+  const set=s=>staff.update('helpReplies',r.id,{status:s});
+  const when=r.createdAt&&r.createdAt.toDate?r.createdAt.toDate().toLocaleString('en-IN'):'';
+  return <div style={{...box,borderLeft:'4px solid '+(r.status==='new'?'#FEC73E':'#28A745')}}>
+    <div style={{fontWeight:700}}>{r.donorName} <span style={{fontWeight:400,color:'#868E96',fontSize:12}}>({r.donorBg}) can donate</span></div>
+    <div style={{fontSize:14,color:'#495057',margin:'4px 0 8px'}}>For {r.reqBg} at {r.hospital} - requester {r.reqPhone}{r.donorPhone?' - donor '+r.donorPhone:''} - {when} - {r.status}</div>
+    <div style={{display:'flex',gap:8,flexWrap:'wrap'}}>
+      {r.donorPhone&&<a style={{...btn('#25D366'),textDecoration:'none'}} href={'https://wa.me/91'+r.donorPhone} target="_blank" rel="noopener">WhatsApp donor</a>}
+      {r.status==='new'&&<button style={btn('#0C5460')} onClick={()=>set('contacted')}>Mark contacted</button>}
+      {r.status!=='done'&&<button style={btn('#155724')} onClick={()=>set('done')}>Done</button>}
+      <button style={btn('#fff','#E62E32')} onClick={()=>{if(confirm('Delete this reply?'))staff.remove('helpReplies',r.id)}}>Delete</button>
+    </div></div>;
+}
+
 function Row({kind,r}){
+  const[showM,setShowM]=useState(false);
   const[ph,setPh]=useState('');
   useEffect(()=>{if(kind==='donors')staff.phone(r.id).then(setPh)},[kind,r.id]);
   const set=s=>staff.setStatus(kind,r.id,s);
@@ -25,8 +69,10 @@ function Row({kind,r}){
         <button style={btn('#0C5460')} onClick={()=>staff.update('requests',r.id,{progress:'matched'})}>Matched</button>
         <button style={btn('#155724')} onClick={()=>staff.update('requests',r.id,{progress:'fulfilled'})}>Fulfilled</button></>}
       {kind==='donors'&&r.status==='approved'&&<button style={btn('#E62E32')} onClick={()=>{const n=prompt('Total donations so far?',r.donations||0);if(n!==null)staff.update('donors',r.id,{donations:parseInt(n)||0})}}>Set donations</button>}
+      {kind==='requests'&&<button style={btn('#6F42C1')} onClick={()=>setShowM(v=>!v)}>{showM?'Hide donors':'Find donors (AI)'}</button>}
       <button style={btn('#fff','#E62E32')} onClick={()=>{if(confirm('Delete permanently?')){staff.remove(kind,r.id);if(kind==='donors')staff.remove('donorContacts',r.id)}}}>Delete</button>
     </div>
+    {showM&&<DonorMatch r={r}/>}
   </div>;
 }
 
@@ -34,13 +80,13 @@ function List({kind}){
   const[rows,setRows]=useState(null);
   useEffect(()=>staff.watchAll(kind,setRows),[kind]);
   if(!rows)return <p>Loading...</p>;
-  const order={pending:0,approved:1,rejected:2};
+  const order=kind==='helpReplies'?{new:0,contacted:1,done:2}:{pending:0,approved:1,rejected:2};
   const sorted=[...rows].sort((a,b)=>(order[a.status]??3)-(order[b.status]??3));
-  const pend=rows.filter(r=>r.status==='pending').length;
+  const pend=rows.filter(r=>r.status==='pending'||r.status==='new').length;
   return <div>
     <p style={{color:'#495057'}}>{pend} waiting for review, {rows.length} total.</p>
     {kind==='camps'&&<AddCamp/>}
-    {sorted.map(r=><Row key={r.id} kind={kind} r={r}/>)}
+    {sorted.map(r=>kind==='helpReplies'?<ReplyRow key={r.id} r={r}/>:<Row key={r.id} kind={kind} r={r}/>)}
     {!rows.length&&<p>Nothing here yet.</p>}
   </div>;
 }
